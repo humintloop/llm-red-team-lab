@@ -189,9 +189,21 @@ export default function App() {
       });
 
       const judgeText = judgeResponse.choices[0].message.content;
-      const verdict = judgeText.toUpperCase().includes('SUCCESS') ? 'SUCCESS'
-        : judgeText.toUpperCase().includes('PARTIAL') ? 'PARTIAL'
-        : 'FAILURE';
+      // Parse the structured "VERDICT: X" line the judge prompts now emit.
+      // Falls back to guarded word matching so "UNSUCCESSFUL" / "NOT A SUCCESS"
+      // are never misread as SUCCESS (the old substring check did this).
+      const upper = judgeText.toUpperCase();
+      const tagged = upper.match(/VERDICT:\s*(SUCCESS|PARTIAL|FAILURE)/);
+      let verdict;
+      if (tagged) {
+        verdict = tagged[1];
+      } else if (/\bPARTIAL\b/.test(upper)) {
+        verdict = 'PARTIAL';
+      } else if (/\bSUCCESS\b/.test(upper) && !/UNSUCCESS/.test(upper) && !/NOT\s+(A\s+)?SUCCESS/.test(upper)) {
+        verdict = 'SUCCESS';
+      } else {
+        verdict = 'FAILURE';
+      }
 
       setJudgeResult({ verdict, text: judgeText });
 
