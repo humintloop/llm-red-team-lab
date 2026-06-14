@@ -56,7 +56,7 @@ export const CONTROL_SET = {
     id: 'LLM-EVAL-002',
     name: 'Evaluation Evidence Retention',
     domain: 'AI Evaluation',
-    objective: 'Retain sufficient evidence to support review and retesting, including test case ID, model/runtime, prompt, response, judge verdict, severity, confidence, and remediation status.',
+    objective: 'Retain sufficient evidence indicators to support review and retesting, including test case ID, model/runtime, prompt, response excerpt, evaluator outputs, and mapped controls.',
   },
   'LLM-MON-001': {
     id: 'LLM-MON-001',

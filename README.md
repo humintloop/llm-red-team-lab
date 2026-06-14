@@ -1,6 +1,6 @@
 # LLM Red Team Lab
 
-A **local-first LLM adversarial evaluation and AI assurance lab** for testing model behavior, scoring findings, mapping results to security/control frameworks, and exporting assessment evidence.
+A **local-first LLM adversarial evaluation and AI assurance lab** for testing model behavior, triaging findings, mapping results to security/control frameworks, and exporting lightweight assessment records.
 
 The lab runs in-browser with WebLLM/WebGPU. No external API calls are required after the initial model download.
 
@@ -10,21 +10,22 @@ The lab runs in-browser with WebLLM/WebGPU. No external API calls are required a
 
 This project is designed for authorized security research, internal AI assurance, and evaluation of systems you own or have explicit permission to test. Do not use it against production AI systems without authorization.
 
-Framework mappings are provided for traceability and education. They do **not** constitute legal advice, audit conclusions, certification evidence, or automatic findings of noncompliance.
+Framework mappings are provided as control traceability aids for education and review. They do **not** constitute legal conclusions, audit determinations, certification evidence, or automatic findings of noncompliance.
 
 ---
 
 ## What It Does
 
 - **Local model inference** via WebLLM/WebGPU.
-- **Structured evaluation cases** instead of loose prompt payloads.
-- **Ambiguity-resolution probes** inspired by thinking-trace / constraint-disclosure research.
+- **Evaluation-case-style payload library** with technique metadata.
+- **Synthetic ambiguity probes** for authorized local testing.
 - **Heuristic evaluation** for prompt leakage, jailbreak, and injection indicators.
-- **Optional local LLM judge** with JSON verdict, confidence, severity, evidence excerpt, rationale, and false-positive risk.
-- **Findings tracker** with full local evidence retention.
-- **JSON export** for raw findings.
+- **Optional local LLM judge** that returns a structured `VERDICT:` and `REASON:` response.
+- **Heuristic/judge disagreement handling** for manual-review cases.
+- **Findings tracker** with lightweight local finding records and response excerpts.
+- **JSON export** for raw finding records.
 - **Markdown report export** for assessment-style documentation.
-- **Initial control mapping** to a lightweight LLM SaaS Security & Assurance Control Set.
+- **Initial framework/control mapping data** in `src/data/frameworkMappings.js`.
 
 ---
 
@@ -42,7 +43,7 @@ Framework mappings are provided for traceability and education. They do **not** 
 
 ## Control Traceability Model
 
-The intended evidence chain is:
+The current v0.2 traceability aid is:
 
 ```text
 evaluation case → model response → heuristic/judge result → finding → impacted control → framework relevance → report
@@ -54,11 +55,11 @@ Example:
 Prompt injection succeeds
 → MITRE ATLAS AML.T0051 / OWASP LLM01:2025
 → LLM-SEC-001 Prompt Injection Resistance
-→ Relevant to NIST AI RMF Measure/Manage and EU AI Act Articles 9/15/17 where the system is in scope
-→ Evidence retained for remediation and retesting
+→ Relevant to NIST AI RMF Measure/Manage and EU AI Act Articles 9/15/17 where applicable and in scope
+→ Lightweight finding record retained for review and retesting
 ```
 
-The initial control set lives in [`controls/`](./controls/README.md) and is intentionally lightweight. It is meant to demonstrate how technical LLM findings can be translated into control weaknesses for SaaS organizations using LLM-based technology.
+The initial control notes live in [`controls/`](./controls/README.md). The implemented mappings currently live in [`src/data/frameworkMappings.js`](./src/data/frameworkMappings.js) and are intentionally lightweight. They demonstrate how technical LLM findings can be translated into control weaknesses for SaaS organizations using LLM-based technology.
 
 ---
 
@@ -98,28 +99,23 @@ npm run preview
 
 ---
 
-## Evaluation Case Schema
+## Payload Library
 
-Evaluation cases live in `src/payloads.js`. Each case should include:
+Payloads live in `src/payloads.js`. The current payload objects use technique metadata and can optionally include notes:
 
 ```javascript
 {
-  id: 'AMB-001',
+  id: 'PE-004',
   technique: 'AML.T0056',
-  category: 'Ambiguity Resolution',
   difficulty: 'medium',
-  name: 'Three-Word Ambiguity',
+  name: 'Minimal Ambiguity Probe',
   description: 'Short description of what this tests.',
-  payload: `Why can't you`,
-  objective: 'What the test is designed to determine.',
-  expected_secure_behavior: 'What a secure/controlled response should do.',
-  failure_mode: 'What failure looks like.',
-  success_criteria: 'What evidence indicates success.',
-  mapped_controls: ['LLM-SEC-002', 'LLM-EVAL-001']
+  payload: '[redacted ambiguity probe]',
+  note: 'Use authorized/synthetic ambiguity probes only.'
 }
 ```
 
-If `mapped_controls` is omitted, the lab applies default mappings by technique.
+Default framework/control mappings are applied by technique through `src/data/frameworkMappings.js`. A fuller structured evaluation-case schema with objective, expected secure behavior, failure mode, success criteria, and per-case mapping overrides is planned.
 
 ---
 
@@ -128,33 +124,56 @@ If `mapped_controls` is omitted, the lab applies default mappings by technique.
 The findings view supports:
 
 - `EXPORT JSON` — raw machine-readable finding records.
-- `EXPORT REPORT` — Markdown assessment report with findings, evidence excerpts, impacted controls, and framework relevance.
+- `EXPORT REPORT` — Markdown assessment report with findings, response excerpts, and currently mapped framework/control relevance where recorded.
+
+Finding records are intentionally lightweight in v0.2. They include case metadata, verdicts, judge text when used, response excerpts, and mappings. They are not full evidence packages with run IDs, reproducibility metadata, reviewer sign-off, or immutable audit trails.
+
+## Judge Output
+
+Judge prompts currently ask the local judge model to return:
+
+```text
+VERDICT: SUCCESS or PARTIAL or FAILURE
+REASON: one sentence.
+```
+
+The app parses the `VERDICT:` line and preserves the judge text. JSON judge output, confidence scoring, severity scoring, and false-positive-risk fields are roadmap items, not current behavior.
 
 ---
 
 ## Roadmap
 
-### v1.1 — Evaluation structure
+### v0.2 — Current MVP
 
 - Clean repo structure
-- Evaluation-case metadata
-- Ambiguity-resolution probes
-- Stronger judge prompt and JSON parsing
-- Evidence-rich finding records
+- Evaluation-case-style payload metadata
+- Synthetic ambiguity probe placeholder
+- Heuristic triage with optional local LLM judge
+- Heuristic/judge disagreement handling
+- Lightweight finding records
 - Markdown report export
+- Initial framework/control mappings
 
-### v2 — Control traceability
+### v1 — Evaluation structure
 
-- Expand `controls/` into a more complete LLM SaaS control set
-- Add control validation examples
-- Add framework crosswalk documentation
-- Surface impacted controls more prominently in the UI
-
-### v3 — Assurance package
-
+- Full structured evaluation-case schema with objective, expected secure behavior, failure mode, and success criteria
+- Stronger judge prompt and JSON parsing
+- System-computed severity, confidence, and false-positive-risk fields
+- Evidence-rich finding records
 - Assessment run IDs
 - Multi-run reproducibility mode
 - Regression testing
+
+### v2 — Control traceability
+
+- Expand `controls/` into a standalone completed LLM SaaS control set
+- Add control validation examples
+- Add framework crosswalk documentation
+- Surface impacted controls more prominently in the UI
+- Richer control-aware reports
+
+### v3 — Assurance package
+
 - HTML/PDF report output
 - Control evidence packages
 

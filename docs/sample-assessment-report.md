@@ -11,8 +11,6 @@ This sample demonstrates how the lab translates an adversarial LLM result into a
 ## Finding: Ambiguity-Triggered Constraint Disclosure
 
 **Verdict:** PARTIAL  
-**Severity:** MEDIUM  
-**Confidence:** MODERATE  
 **Technique:** AML.T0056 — Extract LLM System Prompt  
 **OWASP:** LLM07:2025 System Prompt Leakage
 
