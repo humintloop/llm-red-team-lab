@@ -7,6 +7,11 @@ const truncate = (value = '', max = 1800) => {
 
 const list = (items = []) => items.length ? items.map(item => `- ${item}`).join('\n') : '- None recorded';
 
+const section = (title, value) => {
+  const text = String(value || '').trim();
+  return text ? `### ${title}\n${text}\n\n` : '';
+};
+
 const controlList = (ids = []) => {
   const controls = getMappedControls(ids);
   return controls.length
@@ -30,24 +35,17 @@ export function buildFindingMarkdown(finding) {
 **Verdict:** ${finding.verdict || 'Unknown'}  
 **Review Status:** ${finding.reviewStatus || 'Not recorded'}  
 **Verdict Source:** ${finding.finalVerdictSource || 'Not recorded'}  
-**Severity:** ${finding.severity || 'Not assessed'}  
-**Confidence:** ${finding.confidence || 'Not assessed'}  
 **Test Case:** ${finding.caseId || finding.payloadId || 'custom'}  
 **Technique:** ${finding.techniqueId || 'Unmapped'} — ${finding.techniqueName || ''}  
 **OWASP:** ${finding.owasp || 'Unmapped'}  
 **Victim Model:** ${finding.victimModel || 'Not recorded'}  
 **Timestamp:** ${finding.timestamp || 'Not recorded'}
 
-### Objective
-${finding.objective || 'Not recorded'}
-
-### Expected Secure Behavior
-${finding.expectedSecureBehavior || finding.expected_secure_behavior || 'Not recorded'}
-
-### Failure Mode
-${finding.failureMode || finding.failure_mode || 'Not recorded'}
-
-### Evidence Excerpt
+${section('Case Description', finding.caseDescription || finding.description)}
+${section('Objective', finding.objective)}
+${section('Expected Secure Behavior', finding.expectedSecureBehavior || finding.expected_secure_behavior)}
+${section('Failure Mode', finding.failureMode || finding.failure_mode)}
+### Response Excerpt
 > ${truncate(finding.evidenceExcerpt || finding.responseExcerpt || finding.response || '', 1000).replace(/\n/g, '\n> ')}
 
 ### Evaluation Rationale
@@ -57,7 +55,6 @@ ${finding.failureMode || finding.failure_mode || 'Not recorded'}
 - LLM Judge Rationale: ${finding.judgeRationale || finding.judgeReason || 'Not used or not recorded'}
 - Evaluation Disagreement: ${finding.evaluationDisagreement ? 'Yes — manual review required' : 'No material disagreement recorded'}
 - Evaluation Note: ${finding.evaluationNote || 'None'}
-- False Positive Risk: ${finding.falsePositiveRisk || 'Not assessed'}
 
 ### Impacted Controls
 ${controlList(controls)}
@@ -70,7 +67,7 @@ ${frameworkList(finding)}
 ${truncate(finding.payload || '', 1800)}
 \`\`\`
 
-### Response Evidence
+### Stored Response Excerpt
 \`\`\`text
 ${truncate(finding.responseFull || finding.response || '', 2500)}
 \`\`\`
@@ -91,7 +88,7 @@ Control Set Version: ${CONTROL_SET_VERSION}
 
 ## Executive Summary
 
-This report summarizes locally executed adversarial evaluation cases against one or more browser-hosted LLMs. The lab treats findings as **evidence indicators**: a successful or partial adversarial result indicates a potential control weakness that should be reviewed, reproduced, remediated, and retested. Framework mappings are provided for traceability and do not constitute legal, audit, or certification conclusions.
+This report summarizes locally executed adversarial evaluation cases against one or more browser-hosted LLMs. The lab treats findings as **lightweight evidence indicators**: a successful or partial adversarial result indicates a potential control weakness that should be reviewed, reproduced, remediated, and retested. Framework mappings are provided for traceability and do not constitute legal, audit, or certification conclusions.
 
 - Findings logged: ${findings.length}
 - Successful or partial findings: ${successful}
@@ -105,7 +102,7 @@ The evaluation workflow is:
 2. Run a structured adversarial evaluation case.
 3. Capture the model response and local heuristic result.
 4. Optionally run a separate local judge model.
-5. Log the finding with evidence, severity, confidence, control mapping, and framework relevance.
+5. Log a lightweight finding record with response excerpts, evaluator outputs, control mapping, and framework relevance.
 
 ## Impacted Control Summary
 

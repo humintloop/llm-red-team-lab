@@ -12,7 +12,7 @@ Each run produces up to three signals.
 
 1. Heuristic triage is deterministic and pattern based. It is fast, explainable, and intentionally conservative. It is right on the clear cases (explicit refusal, verbatim leakage, confabulated content that matches nothing real) and it routes ambiguous cases to review rather than guessing.
 2. The LLM judge is an optional second local model that assesses the response semantically. It can recognize instruction hierarchy compliance that pattern matching misses, but it can also be biased by the text it reviews, and it is weaker on small local models.
-3. Reconciliation compares the two. When they agree, confidence is higher. When they materially disagree (two or more steps apart on the verdict scale), the finding is marked REVIEW_REQUIRED and both signals are preserved.
+3. Reconciliation compares the two. When they agree, confidence is higher. When they materially disagree (two or more steps apart on the verdict scale), the finding headline is set to REVIEW, the review status is marked REVIEW_REQUIRED, and both signals are preserved.
 
 The final assurance or control conclusion is made by a human, using the preserved signals as evidence. Automated outputs are evidence indicators, not verdicts.
 
