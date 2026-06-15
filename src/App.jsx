@@ -409,6 +409,109 @@ export default function App() {
         .row { transition: background .16s ease, border-color .16s ease; }
         .row:hover { background: ${C.hover} !important; }
         .pill-btn:hover { opacity: .9; }
+        .app-header {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          padding: 14px 20px;
+          border-bottom: 1px solid ${C.borderHi};
+          background: linear-gradient(180deg, ${C.panel}, rgba(9,16,13,.96));
+          box-shadow: 0 16px 40px rgba(0,0,0,.24);
+          flex-shrink: 0;
+        }
+        .brand-lockup {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+          flex: 0 0 auto;
+        }
+        .brand-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+          flex-shrink: 0;
+          box-shadow: 0 0 0 1px rgba(232,162,60,.32);
+        }
+        .brand-word {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 188px;
+        }
+        .brand-title {
+          color: ${C.amber};
+          font-size: 31px;
+          font-weight: 900;
+          line-height: .92;
+          letter-spacing: 3.5px;
+        }
+        .brand-subtitle {
+          margin-top: 5px;
+          color: ${C.warmDim};
+          font-size: 10px;
+          font-weight: 800;
+          line-height: 1;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+        }
+        .brand-context {
+          color: ${C.text3};
+          font-size: 13px;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+          max-width: 430px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .model-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1 1 auto;
+          min-width: 285px;
+        }
+        .tab-nav {
+          display: flex;
+          gap: 0;
+          flex-shrink: 0;
+        }
+        @media (max-width: 1080px) {
+          .brand-context { display: none; }
+          .brand-word { min-width: 176px; }
+        }
+        @media (max-width: 820px) {
+          .app-header {
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 14px 16px;
+          }
+          .brand-icon {
+            width: 42px;
+            height: 42px;
+          }
+          .brand-title {
+            font-size: 29px;
+          }
+          .brand-subtitle {
+            font-size: 10px;
+          }
+          .model-bar {
+            order: 3;
+            flex-basis: 100%;
+          }
+          .model-bar select {
+            flex: 1;
+            min-width: 0;
+          }
+          .tab-nav {
+            margin-left: auto;
+          }
+          .header-divider {
+            display: none;
+          }
+        }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -419,24 +522,21 @@ export default function App() {
       `}</style>
 
       {/* ═══ HEADER ══════════════════════════════════════════════════════════ */}
-      <header style={{
-        display: 'flex', alignItems: 'center', gap: 18, padding: '12px 18px',
-        borderBottom: `1px solid ${C.borderHi}`,
-        background: `linear-gradient(180deg, ${C.panel}, rgba(9,16,13,.96))`,
-        boxShadow: '0 16px 40px rgba(0,0,0,.24)',
-        flexShrink: 0,
-      }}>
+      <header className="app-header">
         {/* Wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <img src={`${BRAND_BASE}brand/elicit-icon.png`} alt="ELICIT icon" style={{ width: 30, height: 30, borderRadius: 7, flexShrink: 0, boxShadow: '0 0 0 1px rgba(232,162,60,.24)' }} />
-          <img src={`${BRAND_BASE}brand/elicit-wordmark.svg`} alt="ELICIT" style={{ width: 116, maxWidth: '26vw', height: 'auto', display: 'block', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: C.text3, letterSpacing: 1.1, textTransform: 'uppercase', maxWidth: 330, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Local-first adversarial assurance lab</span>
+        <div className="brand-lockup">
+          <img src={`${BRAND_BASE}brand/elicit-icon.png`} alt="ELICIT icon" className="brand-icon" />
+          <div className="brand-word" aria-label="ELICIT LLM Red Team Lab">
+            <div className="brand-title">ELICIT</div>
+            <div className="brand-subtitle">LLM RED TEAM LAB</div>
+          </div>
+          <span className="brand-context">Local-first adversarial assurance lab</span>
         </div>
 
-        <div style={{ width: 1, height: 20, background: C.border }} />
+        <div className="header-divider" style={{ width: 1, height: 24, background: C.border }} />
 
         {/* Model selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+        <div className="model-bar">
           <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1 }}>VICTIM MODEL</span>
           <select
             value={victimModelId}
@@ -478,7 +578,7 @@ export default function App() {
         </div>
 
         {/* Tab nav */}
-        <div style={{ display: 'flex', gap: 0 }}>
+        <div className="tab-nav">
           {[['lab', 'LAB', <FlaskConical size={11} />], ['findings', `FINDINGS (${findings.length})`, <FileText size={11} />]].map(([tab, label, icon]) => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               display: 'flex', alignItems: 'center', gap: 5,
