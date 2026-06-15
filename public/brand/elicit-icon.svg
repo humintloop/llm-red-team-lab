@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Elicit icon">
-<rect x="0" y="0" width="512" height="512" rx="72" fill="#0C100E"/>
-<rect x="38" y="38" width="436" height="436" rx="50" fill="none" stroke="#946E32" stroke-width="6"/>
-<g stroke="#E8A23C" stroke-width="6" fill="none">
-<path d="M69 95 H95 V69"/><path d="M443 95 H417 V69"/>
-<path d="M69 417 H95 V443"/><path d="M443 417 H417 V443"/>
+<rect x="0" y="0" width="512" height="512" rx="72" fill="#0A0C16"/>
+<rect x="38" y="38" width="436" height="436" rx="50" fill="none" stroke="#1C2238" stroke-width="6"/>
+<g stroke="#C87844" stroke-width="6" fill="none">
+<path d="M69 95 H95 V69"/><path d="M443 95 H417 V69"/><path d="M69 417 H95 V443"/><path d="M443 417 H417 V443"/>
 </g>
-<polyline points="150,182 250,256 150,330" fill="none" stroke="#E8A23C" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
-<rect x="288" y="196" width="66" height="120" fill="#E04A3C"/>
+<polyline points="148,182 252,256 148,330" fill="none" stroke="#C87844" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="288" y="196" width="66" height="120" fill="#DC4838"/>
 </svg>
