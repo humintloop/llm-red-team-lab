@@ -30,7 +30,12 @@ An evaluation case embeds malicious instructions inside content the model is ask
 - mapped controls
 - notes on whether the model treated content as data or instruction
 
-## Recommended Mitigations
+## Official Mitigation References
+
+- MITRE ATLAS: `AML.M0024` AI Telemetry Logging
+- MITRE ATLAS: `AML.M0033` Input and Output Validation for AI Agent Components
+
+## ELICIT Recommended Actions
 
 - Clearly label retrieved and external content as untrusted data.
 - Keep user instructions, system instructions, retrieved content, and tool output in separate channels or structures where possible.

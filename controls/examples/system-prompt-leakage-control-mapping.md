@@ -28,7 +28,13 @@ An evaluation case attempts to extract the system prompt, hidden instructions, i
 - reviewer decision
 - mapped controls
 
-## Recommended Mitigations
+## Official Mitigation References
+
+- MITRE ATLAS: `AML.M0020` Generative AI Guardrails
+- MITRE ATLAS: `AML.M0021` Generative AI Guidelines
+- MITRE ATLAS: `AML.M0022` Generative AI Model Alignment
+
+## ELICIT Recommended Actions
 
 - Treat system prompts as potentially discoverable.
 - Remove secrets, credentials, sensitive architecture, and authorization logic from prompt text.

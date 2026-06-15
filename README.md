@@ -37,6 +37,7 @@ Security issues in this repository should be reported through GitHub private sec
 - **JSON export** for raw evidence records.
 - **Markdown report export** for assessment-style documentation.
 - **Initial framework/control mapping data** including ISO/IEC 42001 section 9, EU AI Act readiness relevance, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF.
+- **Source-backed mitigation references** with official MITRE ATLAS mitigation IDs separated from ELICIT project-defined actions and retest guidance.
 
 ---
 

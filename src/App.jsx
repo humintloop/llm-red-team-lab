@@ -323,6 +323,7 @@ export default function App() {
       iso42001Relevance: mapping.iso_42001_relevance,
       readinessProfile: mapping.readiness_profile,
       readinessGaps: mapping.readiness_gaps,
+      officialMitigations: mitigation.official_mitigations,
       recommendedMitigations: mitigation.recommended_mitigations,
       retestGuidance: mitigation.retest_guidance,
       notes: '',
@@ -985,6 +986,7 @@ function FindingCard({ finding: f, onUpdate, onDelete }) {
   const vc = f.verdict === 'SUCCESS' ? C.red : f.verdict === 'PARTIAL' ? C.amber : f.verdict === 'REVIEW' ? C.warmDim : C.coolDim;
   const reviewerDecision = f.reviewerDecision || 'UNREVIEWED';
   const mitigation = getMitigationMapping(f.techniqueId);
+  const officialMitigations = f.officialMitigations || f.official_mitigations || mitigation.official_mitigations || [];
   const recommendedMitigations = f.recommendedMitigations || f.recommended_mitigations || mitigation.recommended_mitigations || [];
   const retestGuidance = f.retestGuidance || f.retest_guidance || mitigation.retest_guidance || [];
 
@@ -1073,9 +1075,19 @@ function FindingCard({ finding: f, onUpdate, onDelete }) {
               </div>
             </div>
           )}
+          {officialMitigations.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>OFFICIAL MITIGATION REFERENCES</div>
+              <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
+                {officialMitigations.map((item, idx) => (
+                  <div key={idx}>- {item.source}: {item.id} — {item.name}</div>
+                ))}
+              </div>
+            </div>
+          )}
           {recommendedMitigations.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>RECOMMENDED MITIGATIONS</div>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>ELICIT RECOMMENDED ACTIONS</div>
               <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
                 {recommendedMitigations.map((item, idx) => <div key={idx}>- {item}</div>)}
               </div>

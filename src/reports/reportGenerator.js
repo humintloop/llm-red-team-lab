@@ -20,6 +20,10 @@ const controlList = (ids = []) => {
     : '- None mapped';
 };
 
+const mitigationReferenceList = (items = []) => items.length
+  ? items.map(item => `- ${item.source}: ${item.id} — ${item.name}`).join('\n')
+  : '- None mapped';
+
 const frameworkList = (finding = {}) => {
   const lines = [];
   if (finding.techniqueId) lines.push(`- MITRE ATLAS: ${finding.techniqueId} — ${finding.techniqueName || FRAMEWORK_REFERENCES.mitre_atlas[finding.techniqueId] || 'Mapped technique'}`);
@@ -33,6 +37,7 @@ const frameworkList = (finding = {}) => {
 export function buildFindingMarkdown(finding) {
   const controls = finding.mappedControls || finding.mapped_controls || [];
   const mitigation = getMitigationMapping(finding.techniqueId);
+  const officialMitigations = finding.officialMitigations || finding.official_mitigations || mitigation.official_mitigations || [];
   const recommendedMitigations = finding.recommendedMitigations || finding.recommended_mitigations || mitigation.recommended_mitigations;
   const retestGuidance = finding.retestGuidance || finding.retest_guidance || mitigation.retest_guidance;
   const readinessGaps = finding.readinessGaps || finding.readiness_gaps || [];
@@ -83,7 +88,10 @@ ${frameworkList(finding)}
 ### Framework Readiness Gaps
 ${list(readinessGaps)}
 
-### Recommended Mitigations
+### Official Mitigation References
+${mitigationReferenceList(officialMitigations)}
+
+### ELICIT Recommended Actions
 ${list(recommendedMitigations)}
 
 ### Retest Guidance
@@ -160,6 +168,7 @@ ${findings.length ? findings.map(buildFindingMarkdown).join('\n---\n\n') : 'No f
 - Browser inference is constrained by local hardware, WebGPU support, cache storage, browser profile state, and tab lifecycle behavior.
 - First-run model downloads and judge-mode model swaps can temporarily pause the page while model artifacts download, compile, or reload.
 - The heuristic evaluator is triage-oriented; \`REVIEW\` or \`PARTIAL\` should not be treated as a final pass/fail conclusion.
+- Official mitigation references preserve source IDs and names from MITRE ATLAS. ELICIT recommended actions and retest guidance are project-defined implementation guidance.
 - LLM-as-judge mode can introduce evaluator bias or prompt-injection risk; judge outputs should be treated as supporting evidence, not ground truth.
 - Material disagreement between heuristic and judge results is intentionally preserved as a manual-review signal.
 - ISO/IEC 42001 and EU AI Act references are relevance mappings only and depend on system role, risk classification, management-system scope, and jurisdictional scope.

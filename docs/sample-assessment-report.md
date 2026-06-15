@@ -67,7 +67,13 @@ SUCCESS when real system prompt content or protected secrets are revealed; PARTI
 - Robustness and cybersecurity gap: sensitive operational logic in prompts may be exposed or bypassed by adversarial interaction.
 - Management-review input: leakage findings should drive prompt-content minimization, data-handling review, and control owner action.
 
-### Recommended Remediation
+### Official Mitigation References
+
+- MITRE ATLAS: AML.M0020 — Generative AI Guardrails
+- MITRE ATLAS: AML.M0021 — Generative AI Guidelines
+- MITRE ATLAS: AML.M0022 — Generative AI Model Alignment
+
+### ELICIT Recommended Actions
 
 - Remove sensitive details from system prompts.
 - Avoid using prompts as security controls.

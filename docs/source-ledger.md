@@ -34,6 +34,17 @@ It is a traceability aid, not a legal or audit conclusion.
 | `AML.T0056` | Extract LLM System Prompt | `dist/ATLAS.yaml` | System prompt extraction and prompt leakage testing relevance |
 | `AML.T0057` | LLM Data Leakage | `dist/ATLAS.yaml` | Sensitive disclosure and output monitoring relevance |
 
+## MITRE ATLAS Mitigation References
+
+| Mitigation | Name | Source Path | Lab Use |
+|---|---|---|---|
+| `AML.M0019` | Control Access to AI Models and Data in Production | `dist/ATLAS.yaml` | Official mitigation reference for production access-control relevance |
+| `AML.M0020` | Generative AI Guardrails | `dist/ATLAS.yaml` | Official mitigation reference for guardrail relevance |
+| `AML.M0021` | Generative AI Guidelines | `dist/ATLAS.yaml` | Official mitigation reference for model guideline relevance |
+| `AML.M0022` | Generative AI Model Alignment | `dist/ATLAS.yaml` | Official mitigation reference for model alignment relevance |
+| `AML.M0024` | AI Telemetry Logging | `dist/ATLAS.yaml` | Official mitigation reference for telemetry and monitoring relevance |
+| `AML.M0033` | Input and Output Validation for AI Agent Components | `dist/ATLAS.yaml` | Official mitigation reference for validation and sanitization relevance |
+
 ## OWASP LLM Top 10 References
 
 | Category | Name | Source Path | Lab Use |
@@ -49,6 +60,7 @@ It is a traceability aid, not a legal or audit conclusion.
 - The ELICIT controls are **not** MITRE, OWASP, NIST, ISO, CSA, or EU AI Act controls.
 - MITRE and OWASP entries are used as source-grounded risk and technique references.
 - Mappings from MITRE/OWASP entries to `LLM-*` controls are project-defined and should be treated as inferred unless a future source explicitly defines the relationship.
+- MITRE ATLAS mitigation references preserve official mitigation IDs and names. ELICIT recommended actions and retest guidance are project-defined implementation guidance.
 - ISO/IEC 42001, NIST AI RMF, and EU AI Act references in the app are relevance indicators only. They are not compliance determinations.
 - ISO/IEC 42001 section 9 references are used to frame performance-evaluation evidence: monitoring and measurement, internal audit, and management review.
 - EU AI Act references use a SaaS / critical digital infrastructure readiness lens for CDN, edge, cybersecurity, cloud, and critical digital infrastructure SaaS providers. High-risk status depends on actual system role, intended purpose, jurisdiction, and whether the AI system is used as a safety component or falls into another high-risk category.
