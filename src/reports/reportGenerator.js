@@ -1,4 +1,5 @@
 import { CONTROL_SET, CONTROL_SET_VERSION, FRAMEWORK_REFERENCES, getMappedControls } from '../data/frameworkMappings';
+import { getMitigationMapping, MITIGATION_SET_VERSION } from '../data/mitigationMappings';
 
 const truncate = (value = '', max = 1800) => {
   const text = String(value || '');
@@ -30,6 +31,9 @@ const frameworkList = (finding = {}) => {
 
 export function buildFindingMarkdown(finding) {
   const controls = finding.mappedControls || finding.mapped_controls || [];
+  const mitigation = getMitigationMapping(finding.techniqueId);
+  const recommendedMitigations = finding.recommendedMitigations || finding.recommended_mitigations || mitigation.recommended_mitigations;
+  const retestGuidance = finding.retestGuidance || finding.retest_guidance || mitigation.retest_guidance;
   return `## Finding: ${finding.payloadName || finding.caseName || 'Untitled Evaluation Case'}
 
 **Verdict:** ${finding.verdict || 'Unknown'}  
@@ -62,6 +66,12 @@ ${controlList(controls)}
 ### Framework Relevance
 ${frameworkList(finding)}
 
+### Recommended Mitigations
+${list(recommendedMitigations)}
+
+### Retest Guidance
+${list(retestGuidance)}
+
 ### Prompt Payload
 \`\`\`text
 ${truncate(finding.payload || '', 1800)}
@@ -84,7 +94,8 @@ export function generateAssessmentReport(findings = [], metadata = {}) {
 
 Generated: ${date}  
 Assessment ID: ${metadata.assessmentId || `assessment-${date.slice(0, 10)}`}  
-Control Set Version: ${CONTROL_SET_VERSION}
+Control Set Version: ${CONTROL_SET_VERSION}<br>
+Mitigation Set Version: ${MITIGATION_SET_VERSION}
 
 ## Executive Summary
 

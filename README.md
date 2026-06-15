@@ -1,8 +1,20 @@
-#ELICIT — Local-First Advesarial Assurance Lab
+# ELICIT — Local-First Adversarial Assurance Lab
 
-**ELICIT is a local-first LLM evaluation lab** for testing adversarial model behavior, triaging findings, and mapping failures to the controls that should have caught them.
+![ELICIT social preview](public/brand/elicit-social-preview.png)
+
+**ELICIT** is a local-first LLM evaluation lab for testing adversarial model behavior, triaging findings, and mapping failures to the controls that should have caught them.
 
 The lab runs in-browser with WebLLM/WebGPU. No external API calls are required after the initial model download.
+
+> Red-team LLMs in the browser. Preserve the evidence. Map the control gap.
+
+---
+
+## Why ELICIT?
+
+The name reflects the project’s focus on elicitation, ambiguity, and adversarial behavior. The goal is not just to see whether a model fails, but to understand what causes it to reveal constraints, assumptions, or control gaps.
+
+ELICIT grew out of practical AI governance work: the question was not only whether AI controls existed on paper, but how to test whether those controls actually worked. The project connects adversarial testing with assurance evidence so technical findings can be reviewed, mapped, and improved over time.
 
 ---
 
@@ -66,8 +78,8 @@ The initial control notes live in [`controls/`](./controls/README.md). The imple
 ## Local Setup
 
 ```bash
-git clone https://github.com/humintloop/llm-red-team-lab.git
-cd llm-red-team-lab
+git clone https://github.com/humintloop/elicit.git
+cd elicit
 npm install
 npm run dev
 ```

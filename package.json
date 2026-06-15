@@ -1,7 +1,7 @@
 {
-  "name": "llm-red-team-lab",
+  "name": "elicit",
   "version": "0.2.0",
-  "description": "Local-first LLM adversarial evaluation and AI assurance lab",
+  "description": "Local-first adversarial assurance lab for LLM evaluation and AI control mapping",
   "type": "module",
   "scripts": {
     "dev": "vite",

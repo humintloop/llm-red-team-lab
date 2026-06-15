@@ -1,14 +1,53 @@
-# Controls
+# ELICIT LLM SaaS Control Set
 
-This directory is a placeholder for the lightweight LLM SaaS Security & Assurance Control Set.
+This directory contains a starter, project-defined control set for the AI Assurance Lab.
+It is intended to show how adversarial LLM evaluation results can map to SaaS-ready security and assurance controls.
 
-The implemented v0.2 mappings currently live in `src/data/frameworkMappings.js`, where techniques map to control IDs, NIST AI RMF functions, and EU AI Act relevance notes. Keep this directory in sync if the control set grows into standalone documentation.
+The controls are **not** an official framework. They are deliberately replaceable. When organization-specific AI controls are available, they should supersede this draft.
 
-Example traceability path:
+## Files
+
+- `llm-saas-control-set.yaml` - draft control catalog with objectives, evidence examples, test methods, and retest guidance.
+- `control-mapping-matrix.md` - traceability matrix connecting controls to MITRE ATLAS and OWASP LLM Top 10 references.
+- `example-mapping.json` - lightweight machine-readable example from the MVP.
+- `examples/` - worked examples for prompt injection, system prompt leakage, and indirect prompt injection/RAG.
+- `../docs/source-ledger.md` - source ledger documenting what is official, inferred, and project-defined.
+
+## Control Families
+
+- `LLM-GOV-*` - governance, inventory, and threat modeling
+- `LLM-SEC-*` - LLM application security controls
+- `LLM-EVAL-*` - adversarial evaluation and evidence retention
+- `LLM-MON-*` - monitoring and detection
+- `LLM-OPS-*` - incident response
+- `LLM-TPRM-*` - vendor and model provider risk
+
+## Example Traceability Path
 
 ```text
-AML.T0051 prompt injection result
+Evaluation case DI-001
+-> MITRE ATLAS AML.T0051 / AML.T0051.000
+-> OWASP LLM01:2025 Prompt Injection
 -> LLM-SEC-001 Prompt Injection Resistance
--> LLM-EVAL-001 Adversarial Evaluation & Regression Testing
--> NIST AI RMF Measure / Manage relevance
+-> LLM-EVAL-001 Adversarial Evaluation and Regression Testing
+-> finding evidence and retest guidance
 ```
+
+## Language Boundaries
+
+Use:
+
+- framework relevance
+- control traceability
+- potential control weakness
+- evidence supporting control review
+- retest guidance
+
+Avoid:
+
+- legal violation
+- audit failure
+- certification failure
+- regulatory noncompliance
+
+The lab can produce evidence that a control should be reviewed or retested. It should not claim that a single model response proves a compliance outcome.
