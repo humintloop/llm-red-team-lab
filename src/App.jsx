@@ -14,11 +14,11 @@ import { downloadMarkdown, generateAssessmentReport } from './reports/reportGene
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
   bg:       '#0C100E',
-  panel:    '#11201A',
-  surface:  '#152820',
-  hover:    '#1A3027',
-  border:   '#24352D',
-  borderHi: '#3C4D43',
+  panel:    '#0B1511',
+  surface:  '#101B15',
+  hover:    '#172017',
+  border:   '#1E2A23',
+  borderHi: '#38463B',
   red:      '#E04A3C',
   redDim:   '#6E2D27',
   redBg:    'rgba(224,74,60,.12)',
@@ -30,7 +30,7 @@ const C = {
   ink:      '#0C100E',
   text1:    '#E8D9BE',
   text2:    '#B29870',
-  text3:    '#606E64',
+  text3:    '#6A756C',
   mono:     '"JetBrains Mono", ui-monospace, monospace',
 };
 
@@ -346,9 +346,9 @@ export default function App() {
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100vh',
       background: `
-        linear-gradient(180deg, rgba(232,162,60,.045), transparent 210px),
-        linear-gradient(90deg, rgba(96,110,100,.08) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(96,110,100,.055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(232,162,60,.035), transparent 210px),
+        linear-gradient(90deg, rgba(96,110,100,.052) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(96,110,100,.04) 1px, transparent 1px),
         ${C.bg}
       `,
       backgroundSize: 'auto, 44px 44px, 44px 44px, auto',
@@ -381,7 +381,7 @@ export default function App() {
       <header style={{
         display: 'flex', alignItems: 'center', gap: 18, padding: '12px 18px',
         borderBottom: `1px solid ${C.borderHi}`,
-        background: `linear-gradient(180deg, ${C.panel}, rgba(17,32,26,.94))`,
+        background: `linear-gradient(180deg, ${C.panel}, rgba(9,16,13,.96))`,
         boxShadow: '0 16px 40px rgba(0,0,0,.24)',
         flexShrink: 0,
       }}>
@@ -458,7 +458,7 @@ export default function App() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* ── LEFT: Config + Payload Library ── */}
-          <div style={{ width: 360, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(17,32,26,.72)' }}>
+          <div style={{ width: 360, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(9,15,12,.86)' }}>
 
             {/* Victim config */}
             <div style={{ padding: '12px 14px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
@@ -539,7 +539,7 @@ export default function App() {
                     onClick={() => { setSelectedPayload(p); setUseCustom(false); }}
                     style={{
                       padding: '12px 14px', cursor: 'pointer', borderBottom: `1px solid ${C.border}`,
-                      background: active ? 'rgba(232,162,60,.08)' : 'transparent',
+                      background: active ? 'rgba(232,162,60,.055)' : 'transparent',
                       borderLeft: active ? `2px solid ${C.amber}` : '2px solid transparent',
                     }}
                   >
@@ -560,7 +560,7 @@ export default function App() {
           </div>
 
           {/* ── RIGHT: Terminal + Eval ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(12,16,14,.42)' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(7,11,9,.46)' }}>
 
             {/* Payload editor / preview */}
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
