@@ -1,4 +1,4 @@
-import { CONTROL_SET, CONTROL_SET_VERSION, FRAMEWORK_REFERENCES, getMappedControls } from '../data/frameworkMappings';
+import { ASSURANCE_PROFILE, CONTROL_SET, CONTROL_SET_VERSION, FRAMEWORK_MAPPING_VERSION, FRAMEWORK_REFERENCES, getMappedControls } from '../data/frameworkMappings';
 import { getMitigationMapping, MITIGATION_SET_VERSION } from '../data/mitigationMappings';
 
 const truncate = (value = '', max = 1800) => {
@@ -25,7 +25,8 @@ const frameworkList = (finding = {}) => {
   if (finding.techniqueId) lines.push(`- MITRE ATLAS: ${finding.techniqueId} — ${finding.techniqueName || FRAMEWORK_REFERENCES.mitre_atlas[finding.techniqueId] || 'Mapped technique'}`);
   if (finding.owasp) lines.push(`- OWASP LLM Top 10: ${finding.owasp} — ${FRAMEWORK_REFERENCES.owasp[finding.owasp] || 'Mapped risk category'}`);
   (finding.nistAiRmf || finding.nist_ai_rmf || []).forEach(fn => lines.push(`- NIST AI RMF: ${fn}`));
-  (finding.euAiActRelevance || finding.eu_ai_act_relevance || []).forEach(article => lines.push(`- EU AI Act relevance: ${article} — ${FRAMEWORK_REFERENCES.eu_ai_act[article] || 'Relevant obligation if system is in scope'}`));
+  (finding.iso42001Relevance || finding.iso_42001_relevance || []).forEach(clause => lines.push(`- ISO/IEC 42001 relevance: ${clause} — ${FRAMEWORK_REFERENCES.iso_42001[clause] || 'Relevant AI management system performance-evaluation evidence'}`));
+  (finding.euAiActRelevance || finding.eu_ai_act_relevance || []).forEach(article => lines.push(`- EU AI Act readiness relevance: ${article} — ${FRAMEWORK_REFERENCES.eu_ai_act[article] || 'Relevant obligation if system is in scope'}`));
   return lines.length ? lines.join('\n') : '- None mapped';
 };
 
@@ -34,21 +35,29 @@ export function buildFindingMarkdown(finding) {
   const mitigation = getMitigationMapping(finding.techniqueId);
   const recommendedMitigations = finding.recommendedMitigations || finding.recommended_mitigations || mitigation.recommended_mitigations;
   const retestGuidance = finding.retestGuidance || finding.retest_guidance || mitigation.retest_guidance;
+  const readinessGaps = finding.readinessGaps || finding.readiness_gaps || [];
+  const evidenceRequirements = finding.evidenceRequirements || finding.evidence_requirements || [];
   return `## Finding: ${finding.payloadName || finding.caseName || 'Untitled Evaluation Case'}
 
-**Verdict:** ${finding.verdict || 'Unknown'}  
-**Review Status:** ${finding.reviewStatus || 'Not recorded'}  
-**Verdict Source:** ${finding.finalVerdictSource || 'Not recorded'}  
-**Test Case:** ${finding.caseId || finding.payloadId || 'custom'}  
-**Technique:** ${finding.techniqueId || 'Unmapped'} — ${finding.techniqueName || ''}  
-**OWASP:** ${finding.owasp || 'Unmapped'}  
-**Victim Model:** ${finding.victimModel || 'Not recorded'}  
+**Run ID:** ${finding.runId || finding.id || 'Not recorded'}<br>
+**Finding ID:** ${finding.findingId || finding.id || 'Not recorded'}<br>
+**Verdict:** ${finding.verdict || 'Unknown'}<br>
+**Review Status:** ${finding.reviewStatus || 'Not recorded'}<br>
+**Reviewer Decision:** ${finding.reviewerDecision || 'UNREVIEWED'}<br>
+**Verdict Source:** ${finding.finalVerdictSource || 'Not recorded'}<br>
+**Test Case:** ${finding.caseId || finding.payloadId || 'custom'}<br>
+**Case Version:** ${finding.caseVersion || finding.case_version || 'Not recorded'}<br>
+**Technique:** ${finding.techniqueId || 'Unmapped'} — ${finding.techniqueName || ''}<br>
+**OWASP:** ${finding.owasp || 'Unmapped'}<br>
+**Victim Model:** ${finding.victimModel || 'Not recorded'}<br>
+**Runtime:** ${finding.victimRuntime || 'Not recorded'}<br>
 **Timestamp:** ${finding.timestamp || 'Not recorded'}
 
 ${section('Case Description', finding.caseDescription || finding.description)}
 ${section('Objective', finding.objective)}
 ${section('Expected Secure Behavior', finding.expectedSecureBehavior || finding.expected_secure_behavior)}
 ${section('Failure Mode', finding.failureMode || finding.failure_mode)}
+${section('Success / Failure Criteria', finding.successCriteria || finding.success_criteria)}
 ### Response Excerpt
 > ${truncate(finding.evidenceExcerpt || finding.responseExcerpt || finding.response || '', 1000).replace(/\n/g, '\n> ')}
 
@@ -59,12 +68,19 @@ ${section('Failure Mode', finding.failureMode || finding.failure_mode)}
 - LLM Judge Rationale: ${finding.judgeRationale || finding.judgeReason || 'Not used or not recorded'}
 - Evaluation Disagreement: ${finding.evaluationDisagreement ? 'Yes — manual review required' : 'No material disagreement recorded'}
 - Evaluation Note: ${finding.evaluationNote || 'None'}
+- Reviewer Notes: ${finding.reviewerNotes || finding.notes || 'None recorded'}
+
+### Evidence Requirements
+${list(evidenceRequirements)}
 
 ### Impacted Controls
 ${controlList(controls)}
 
 ### Framework Relevance
 ${frameworkList(finding)}
+
+### Framework Readiness Gaps
+${list(readinessGaps)}
 
 ### Recommended Mitigations
 ${list(recommendedMitigations)}
@@ -94,7 +110,9 @@ export function generateAssessmentReport(findings = [], metadata = {}) {
 
 Generated: ${date}  
 Assessment ID: ${metadata.assessmentId || `assessment-${date.slice(0, 10)}`}  
+Assurance Profile: ${metadata.assuranceProfile || ASSURANCE_PROFILE.label}<br>
 Control Set Version: ${CONTROL_SET_VERSION}<br>
+Framework Mapping Version: ${FRAMEWORK_MAPPING_VERSION}<br>
 Mitigation Set Version: ${MITIGATION_SET_VERSION}
 
 ## Executive Summary
@@ -104,6 +122,12 @@ This report summarizes locally executed adversarial evaluation cases against one
 - Findings logged: ${findings.length}
 - Successful or partial findings: ${successful}
 - Unique impacted controls: ${controlIds.length}
+
+## Framework Readiness Lens
+
+This report uses the **${ASSURANCE_PROFILE.label}** profile for AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure providers. ISO/IEC 42001 references focus on Clause 9 performance-evaluation evidence: monitoring and measurement, internal audit, and management review. EU AI Act references are high-risk readiness indicators only; classification depends on the specific AI system, intended purpose, jurisdiction, and whether it is used as a safety component in critical digital infrastructure or another high-risk category.
+
+Profile scope note: ${ASSURANCE_PROFILE.scope_note}
 
 ## Scope and Methodology
 
@@ -130,7 +154,7 @@ ${findings.length ? findings.map(buildFindingMarkdown).join('\n---\n\n') : 'No f
 - The heuristic evaluator is triage-oriented; \`REVIEW\` or \`PARTIAL\` should not be treated as a final pass/fail conclusion.
 - LLM-as-judge mode can introduce evaluator bias or prompt-injection risk; judge outputs should be treated as supporting evidence, not ground truth.
 - Material disagreement between heuristic and judge results is intentionally preserved as a manual-review signal.
-- EU AI Act references are relevance mappings only and depend on system role, risk classification, and jurisdictional scope.
+- ISO/IEC 42001 and EU AI Act references are relevance mappings only and depend on system role, risk classification, management-system scope, and jurisdictional scope.
 `;
 }
 

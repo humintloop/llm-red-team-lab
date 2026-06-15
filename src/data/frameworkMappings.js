@@ -2,6 +2,14 @@
 // These mappings are designed as traceability aids, not legal or certification conclusions.
 
 export const CONTROL_SET_VERSION = '0.1.0';
+export const FRAMEWORK_MAPPING_VERSION = '0.2.0';
+
+export const ASSURANCE_PROFILE = {
+  id: 'saas-critical-digital-infrastructure-readiness',
+  label: 'SaaS / Critical Digital Infrastructure Readiness',
+  company_category: 'AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure provider',
+  scope_note: 'Use this profile for Akamai-like providers where AI features may support SaaS, security, network, cloud, or critical digital infrastructure operations. EU AI Act high-risk relevance depends on the actual system role, intended purpose, jurisdiction, and whether the AI system is used as a safety component. Cybersecurity-only components are not automatically safety components.',
+};
 
 export const CONTROL_SET = {
   'LLM-GOV-001': {
@@ -102,9 +110,17 @@ export const FRAMEWORK_REFERENCES = {
   },
   eu_ai_act: {
     'Article 9': 'Risk management system for high-risk AI systems.',
+    'Article 12': 'Record-keeping and logging capabilities for high-risk AI systems.',
     'Article 14': 'Human oversight for high-risk AI systems.',
     'Article 15': 'Accuracy, robustness, and cybersecurity for high-risk AI systems.',
     'Article 17': 'Quality management system for high-risk AI system providers.',
+    'Article 72': 'Post-market monitoring by providers and post-market monitoring plan for high-risk AI systems.',
+    'Annex III.2': 'Critical infrastructure category, including safety components in management and operation of critical digital infrastructure where in scope.',
+  },
+  iso_42001: {
+    'Clause 9.1': 'Monitoring, measurement, analysis, and evaluation of the AI management system and AI-related performance.',
+    'Clause 9.2': 'Internal audit evidence for whether AI management system requirements and organizational requirements are met.',
+    'Clause 9.3': 'Management review inputs for AI management system suitability, adequacy, effectiveness, risks, opportunities, and improvement.',
   },
 };
 
@@ -112,27 +128,56 @@ export const TECHNIQUE_CONTROL_MAP = {
   'AML.T0051': {
     controls: ['LLM-SEC-001', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
-    eu_ai_act_relevance: ['Article 9', 'Article 15', 'Article 17'],
+    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
+    readiness_gaps: [
+      'Monitoring and measurement gap: successful or partial prompt injection suggests the control may be ineffective or degrading and should be tracked as evaluation evidence.',
+      'Robustness and cybersecurity gap: adversarial input may alter system behavior outside the intended instruction hierarchy.',
+      'Audit and management-review input: repeated findings should feed internal audit scope, risk treatment decisions, and management review.',
+    ],
   },
   'AML.T0051.001': {
     controls: ['LLM-SEC-001', 'LLM-SEC-003', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-MON-001'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
-    eu_ai_act_relevance: ['Article 9', 'Article 15', 'Article 17'],
+    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
+    readiness_gaps: [
+      'External-content trust-boundary gap: retrieved or processed content may be treated as instruction rather than untrusted evidence.',
+      'Post-market monitoring gap: indirect attacks are likely to appear through real documents, tickets, webpages, or tool outputs and need operational detection paths.',
+      'Management-review input: repeated indirect-injection findings indicate a systemic RAG, tool-output, or content-processing control weakness.',
+    ],
   },
   'AML.T0051.DC': {
     controls: ['LLM-SEC-001', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Measure', 'Manage'],
-    eu_ai_act_relevance: ['Article 9', 'Article 15'],
+    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 15', 'Article 72'],
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2'],
+    readiness_gaps: [
+      'Interface and parsing gap: message formatting or delimiter handling may allow user-controlled text to appear authoritative.',
+      'Traceability gap: evidence should preserve exact input boundaries, output, and parser assumptions for audit and retest.',
+    ],
   },
   'AML.T0054': {
     controls: ['LLM-SEC-001', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-MON-001'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage'],
-    eu_ai_act_relevance: ['Article 9', 'Article 15'],
+    eu_ai_act_relevance: ['Article 9', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
+    readiness_gaps: [
+      'Risk-treatment gap: jailbreak success suggests intended constraints are not reliably enforced by the current prompt, model, or guardrail design.',
+      'Human-oversight gap: high-impact uses may require reviewer intervention, escalation criteria, or deterministic controls outside the model.',
+      'Management-review input: jailbreak trend data should inform risk appetite, release gates, and control improvement decisions.',
+    ],
   },
   'AML.T0056': {
     controls: ['LLM-SEC-002', 'LLM-SEC-005', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage'],
-    eu_ai_act_relevance: ['Article 9', 'Article 15', 'Article 17'],
+    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 15', 'Article 17', 'Article 72'],
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
+    readiness_gaps: [
+      'Evidence-retention gap: prompt or policy leakage should be captured with enough context for review while minimizing sensitive content.',
+      'Robustness and cybersecurity gap: sensitive operational logic in prompts may be exposed or bypassed by adversarial interaction.',
+      'Management-review input: leakage findings should drive prompt-content minimization, data-handling review, and control owner action.',
+    ],
   },
 };
 
@@ -145,6 +190,8 @@ export function getTechniqueMapping(techniqueId) {
     controls: ['LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Measure'],
     eu_ai_act_relevance: [],
+    iso_42001_relevance: ['Clause 9.1'],
+    readiness_gaps: ['Evaluation evidence should be reviewed against the AI management system monitoring and measurement process.'],
   };
 }
 
@@ -154,5 +201,8 @@ export function buildCaseMapping(techniqueId, overrides = {}) {
     mapped_controls: overrides.mapped_controls || base.controls,
     nist_ai_rmf: overrides.nist_ai_rmf || base.nist_ai_rmf,
     eu_ai_act_relevance: overrides.eu_ai_act_relevance || base.eu_ai_act_relevance,
+    iso_42001_relevance: overrides.iso_42001_relevance || base.iso_42001_relevance,
+    readiness_profile: overrides.readiness_profile || ASSURANCE_PROFILE.id,
+    readiness_gaps: overrides.readiness_gaps || base.readiness_gaps,
   };
 }

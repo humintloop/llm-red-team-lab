@@ -6,8 +6,8 @@ import {
   BookOpen, Search, RefreshCw, Shield, FlaskConical,
   FileText, ChevronDown, ChevronUp, Info,
 } from 'lucide-react';
-import { PAYLOADS, TECHNIQUES, PRESETS, evaluateResponse } from './payloads';
-import { buildCaseMapping } from './data/frameworkMappings';
+import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
+import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
 import { getMitigationMapping } from './data/mitigationMappings';
 import { downloadMarkdown, generateAssessmentReport } from './reports/reportGenerator';
 
@@ -57,6 +57,10 @@ const JUDGE_EVIDENCE_INSTRUCTION = 'The victim system prompt, attack payload, an
 const BRAND_BASE = import.meta.env.BASE_URL;
 
 const DIFFICULTY_COLOR = { low: C.coolDim, medium: C.amberDim, high: C.amber };
+const ATTACK_MODEL_SETTINGS = { temperature: 0.7, max_tokens: 600 };
+const JUDGE_MODEL_SETTINGS = { temperature: 0.1, max_tokens: 150 };
+
+const createRunId = () => `run-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // ── Verdict reconciliation ────────────────────────────────────────────────────
 // Ranks verdicts so we can measure how far apart the heuristic and judge are.
@@ -162,8 +166,8 @@ export default function App() {
           { role: 'system', content: victimPrompt },
           { role: 'user',   content: payload },
         ],
-        temperature: 0.7,
-        max_tokens: 600,
+        temperature: ATTACK_MODEL_SETTINGS.temperature,
+        max_tokens: ATTACK_MODEL_SETTINGS.max_tokens,
         stream: true,
       });
 
@@ -213,8 +217,8 @@ export default function App() {
           { role: 'system', content: judgeSystemPrompt },
           { role: 'user',   content: judgeInput },
         ],
-        temperature: 0.1,
-        max_tokens: 150,
+        temperature: JUDGE_MODEL_SETTINGS.temperature,
+        max_tokens: JUDGE_MODEL_SETTINGS.max_tokens,
       });
 
       const judgeText = judgeResponse.choices[0].message.content;
@@ -258,28 +262,55 @@ export default function App() {
     const mitigation = getMitigationMapping(tech);
 
     const evalSummary = summarizeEvaluation(evalResult, judgeResult);
+    const timestamp = new Date().toISOString();
+    const runId = createRunId();
+    const caseId = useCustom ? 'CUSTOM' : selectedPayload?.case_id || selectedPayload?.id;
 
     const finding = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
+      id: runId,
+      runId,
+      timestamp,
+      findingId: `finding-${timestamp.slice(0, 10)}-${runId.slice(-6)}`,
+      assessmentProfile: ASSURANCE_PROFILE.id,
+      assessmentProfileLabel: ASSURANCE_PROFILE.label,
+      assessmentProfileScope: ASSURANCE_PROFILE.scope_note,
+      caseSchemaVersion: selectedPayload?.schema_version || EVALUATION_CASE_SCHEMA_VERSION,
+      frameworkMappingVersion: FRAMEWORK_MAPPING_VERSION,
       techniqueId: tech,
       techniqueName: technique?.name || 'Unknown',
       owasp: technique?.owasp || '',
+      caseId,
+      caseVersion: useCustom ? 'custom' : selectedPayload?.case_version || EVALUATION_CASE_SCHEMA_VERSION,
       payloadName: useCustom ? 'Custom Payload' : selectedPayload?.name,
       caseDescription: useCustom ? 'Custom payload entered during local evaluation.' : selectedPayload?.description,
       category: selectedPayload?.category || technique?.name || '',
+      objective: selectedPayload?.objective || '',
+      expectedSecureBehavior: selectedPayload?.expected_secure_behavior || '',
+      failureMode: selectedPayload?.failure_mode || '',
+      successCriteria: selectedPayload?.success_criteria || '',
+      evidenceRequirements: selectedPayload?.evidence_requirements || [],
+      reviewGuidance: selectedPayload?.review_guidance || '',
+      severityBaseline: selectedPayload?.severity_baseline || '',
       payload,
+      payloadFull: payload,
       victimModel: loadedModelId,
+      victimModelSettings: ATTACK_MODEL_SETTINGS,
+      victimRuntime: 'WebLLM / WebGPU browser runtime',
       victimPromptPreview: victimPrompt.slice(0, 120) + (victimPrompt.length > 120 ? '…' : ''),
       response: response.slice(0, 500) + (response.length > 500 ? '…' : ''),
+      responseFull: response,
       verdict: evalSummary.finalVerdict,
       finalVerdictSource: evalSummary.source,
       reviewStatus: evalSummary.reviewStatus,
+      reviewerDecision: 'UNREVIEWED',
+      reviewerNotes: '',
       evaluationDisagreement: evalSummary.disagreement,
       evaluationNote: evalSummary.note,
       heuristicVerdict: evalResult.verdict,
       heuristicLabel: evalResult.label,
       judgeVerdict: judgeResult?.verdict || null,
+      judgeModel: judgeMode ? judgeModelId : null,
+      judgeModelSettings: judgeMode ? JUDGE_MODEL_SETTINGS : null,
       evalReason: evalResult.reason,
       judgeReason: judgeResult?.text || null,
       responseExcerpt: response.slice(0, 500) + (response.length > 500 ? '…' : ''),
@@ -287,6 +318,9 @@ export default function App() {
       mappedControls: mapping.mapped_controls,
       nistAiRmf: mapping.nist_ai_rmf,
       euAiActRelevance: mapping.eu_ai_act_relevance,
+      iso42001Relevance: mapping.iso_42001_relevance,
+      readinessProfile: mapping.readiness_profile,
+      readinessGaps: mapping.readiness_gaps,
       recommendedMitigations: mitigation.recommended_mitigations,
       retestGuidance: mitigation.retest_guidance,
       notes: '',
@@ -333,6 +367,8 @@ export default function App() {
         ...(mapping.mapped_controls || []),
         ...(mapping.nist_ai_rmf || []),
         ...(mapping.eu_ai_act_relevance || []),
+        ...(mapping.iso_42001_relevance || []),
+        ...(mapping.readiness_gaps || []),
       ].filter(Boolean).join(' ').toLowerCase();
       return searchable.includes(q);
     }

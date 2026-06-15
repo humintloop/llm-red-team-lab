@@ -17,6 +17,9 @@ It is a traceability aid, not a legal or audit conclusion.
 |---|---|---|---|---|---|
 | MITRE-ATLAS-DATA | MITRE ATLAS data repository | `mitre-atlas/atlas-data`, `dist/ATLAS.yaml` | Technique IDs, names, descriptions, variants, and tactic context | Official source / direct mapping | 2026-06-14 |
 | OWASP-LLM-2025 | OWASP Top 10 for LLM Applications 2025 | `owasp/www-project-top-10-for-large-language-model-applications`, `2_0_vulns/*.md` | LLM risk categories, prevention language, and scenario context | Official source / direct and inferred mapping | 2026-06-14 |
+| ISO-42001-OFFICIAL | ISO/IEC 42001:2023 source page | `https://www.iso.org/standard/42001` | AIMS purpose, applicability, and management-system context | Official source / high-level context | 2026-06-15 |
+| ISO-42001-SECTION9-WORKING | User-provided ISO 42001 mapping notes | `sunilp/ai-governance-framework`, `framework/compliance/iso-42001-mapping.md` | Section 9 labels for monitoring/measurement, internal audit, and management review | Third-party implementation guide / inferred mapping | 2026-06-15 |
+| EU-AI-ACT-2024 | Regulation (EU) 2024/1689 | `https://eur-lex.europa.eu/eli/reg/2024/1689/oj` | High-risk readiness references for risk management, logging, oversight, robustness/cybersecurity, QMS, post-market monitoring, and critical infrastructure scope | Official source / relevance mapping | 2026-06-15 |
 | ELICIT-CONTROLS | ELICIT project-defined SaaS LLM control set | `controls/llm-saas-control-set.yaml` | Control objectives, evidence examples, test methods, retest guidance | Project-defined control | 2026-06-14 |
 
 ## MITRE ATLAS Technique References
@@ -46,7 +49,10 @@ It is a traceability aid, not a legal or audit conclusion.
 - The ELICIT controls are **not** MITRE, OWASP, NIST, ISO, CSA, or EU AI Act controls.
 - MITRE and OWASP entries are used as source-grounded risk and technique references.
 - Mappings from MITRE/OWASP entries to `LLM-*` controls are project-defined and should be treated as inferred unless a future source explicitly defines the relationship.
-- NIST AI RMF and EU AI Act references in the app are relevance indicators only. They are not compliance determinations.
+- ISO/IEC 42001, NIST AI RMF, and EU AI Act references in the app are relevance indicators only. They are not compliance determinations.
+- ISO/IEC 42001 section 9 references are used to frame performance-evaluation evidence: monitoring and measurement, internal audit, and management review.
+- EU AI Act references use a SaaS / critical digital infrastructure readiness lens for Akamai-like providers. High-risk status depends on actual system role, intended purpose, jurisdiction, and whether the AI system is used as a safety component or falls into another high-risk category.
+- Cybersecurity-only components are not automatically treated as EU AI Act safety components.
 - The local custom technique `AML.T0051.DC` is not an official MITRE ATLAS technique. It is a local variant for delimiter-confusion testing under the broader prompt-injection family.
 
 ## Review Checklist

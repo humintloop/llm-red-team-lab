@@ -19,6 +19,16 @@ control_set:
     - audit failure
     - certification failure
     - regulatory noncompliance
+  readiness_profile:
+    id: saas-critical-digital-infrastructure-readiness
+    category: >
+      AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure provider.
+    scope_note: >
+      Intended for Akamai-like providers where AI may support SaaS, security,
+      network, cloud, or critical digital infrastructure operations. EU AI Act
+      high-risk relevance depends on system role, intended purpose, jurisdiction,
+      and whether the AI system is used as a safety component. Cybersecurity-only
+      components are not automatically safety components.
 
 controls:
   - id: LLM-GOV-001
@@ -34,6 +44,8 @@ controls:
       mitre_atlas: []
       owasp_llm: []
       nist_ai_rmf: [Govern, Map]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 17]
     evidence_examples:
       - LLM system inventory entry
       - use-case risk classification
@@ -58,6 +70,8 @@ controls:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056]
       owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Govern, Map, Measure]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 15, Article 17]
     evidence_examples:
       - threat model covering direct and indirect prompt injection
       - abuse case list for sensitive disclosure and tool use
@@ -81,6 +95,8 @@ controls:
       mitre_atlas: [AML.T0051, AML.T0051.000, AML.T0051.001, AML.T0051.002]
       owasp_llm: ["LLM01:2025"]
       nist_ai_rmf: [Map, Measure, Manage]
+      iso_42001: [9.1, 9.2]
+      eu_ai_act_readiness: [Article 9, Article 12, Article 14, Article 15, Article 72]
     evidence_examples:
       - prompt-injection evaluation results
       - response excerpts showing refusal, partial influence, or compliance
@@ -110,6 +126,8 @@ controls:
       mitre_atlas: [AML.T0056, AML.T0051.000]
       owasp_llm: ["LLM07:2025", "LLM02:2025"]
       nist_ai_rmf: [Map, Measure, Manage]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 12, Article 15, Article 17, Article 72]
     evidence_examples:
       - system prompt review checklist
       - prompt extraction test results
@@ -138,6 +156,8 @@ controls:
       mitre_atlas: [AML.T0051.001]
       owasp_llm: ["LLM01:2025", "LLM08:2025", "LLM02:2025"]
       nist_ai_rmf: [Map, Measure, Manage]
+      iso_42001: [9.1, 9.2]
+      eu_ai_act_readiness: [Article 9, Article 12, Article 15, Article 72]
     evidence_examples:
       - retrieval-source inventory
       - document trust labeling
@@ -167,6 +187,8 @@ controls:
       mitre_atlas: [AML.T0053, AML.T0051, AML.T0054]
       owasp_llm: ["LLM06:2025", "LLM01:2025"]
       nist_ai_rmf: [Map, Measure, Manage]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 14, Article 15, Article 17]
     evidence_examples:
       - tool inventory and scopes
       - authorization decision logs
@@ -197,6 +219,8 @@ controls:
       mitre_atlas: [AML.T0057, AML.T0056, AML.T0024.000, AML.T0024.001, AML.T0024.002]
       owasp_llm: ["LLM02:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Map, Measure, Manage]
+      iso_42001: [9.1, 9.2]
+      eu_ai_act_readiness: [Article 9, Article 12, Article 15, Article 17]
     evidence_examples:
       - data classification and redaction policy
       - prompt/context redaction checks
@@ -225,6 +249,8 @@ controls:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056]
       owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Measure, Manage]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 12, Article 15, Article 72]
     evidence_examples:
       - evaluation case library
       - run records and timestamps
@@ -250,6 +276,8 @@ controls:
       mitre_atlas: []
       owasp_llm: []
       nist_ai_rmf: [Measure, Manage, Govern]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 12, Article 17, Article 72]
     evidence_examples:
       - run ID
       - case ID and version
@@ -275,6 +303,8 @@ controls:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056, AML.T0057]
       owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025"]
       nist_ai_rmf: [Measure, Manage]
+      iso_42001: [9.1, 9.3]
+      eu_ai_act_readiness: [Article 12, Article 15, Article 72]
     evidence_examples:
       - detection rules or review queues
       - monitoring dashboards
@@ -299,6 +329,8 @@ controls:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056, AML.T0057]
       owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Manage, Govern]
+      iso_42001: [9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 17, Article 72]
     evidence_examples:
       - AI incident playbook
       - containment checklist
@@ -323,6 +355,8 @@ controls:
       mitre_atlas: []
       owasp_llm: ["LLM03:2025", "LLM02:2025", "LLM06:2025"]
       nist_ai_rmf: [Govern, Map, Manage]
+      iso_42001: [9.1, 9.2, 9.3]
+      eu_ai_act_readiness: [Article 9, Article 17]
     evidence_examples:
       - vendor AI risk questionnaire
       - model/provider data-use terms

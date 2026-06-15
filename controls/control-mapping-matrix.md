@@ -1,22 +1,26 @@
 # Control Mapping Matrix
 
-This matrix connects ELICIT's project-defined controls to MITRE ATLAS and OWASP LLM Top 10 references.
+This matrix connects ELICIT's project-defined controls to MITRE ATLAS, OWASP LLM Top 10, ISO/IEC 42001 section 9, and EU AI Act high-risk readiness references.
 Mappings are traceability aids and should be treated as inferred unless noted otherwise.
 
-| Control | Control Name | Primary MITRE ATLAS Relevance | Primary OWASP LLM Relevance | Evidence the Lab Can Produce |
-|---|---|---|---|---|
-| `LLM-GOV-001` | AI System Inventory and Use-Case Classification | System boundary context for all evaluated techniques | System boundary context for all categories | Model/runtime metadata, prompt profile, system inventory notes |
-| `LLM-GOV-002` | AI Threat Modeling | `AML.T0051`, `AML.T0054`, `AML.T0056` | `LLM01:2025`, `LLM02:2025`, `LLM06:2025`, `LLM07:2025`, `LLM08:2025` | Evaluation case rationale, mapped threats, tested assumptions |
-| `LLM-SEC-001` | Prompt Injection Resistance | `AML.T0051`, `AML.T0051.000`, `AML.T0051.001`, `AML.T0051.002` | `LLM01:2025` | Prompt injection result, response excerpt, evaluator decision |
-| `LLM-SEC-002` | System Prompt Leakage Prevention | `AML.T0056`, `AML.T0051.000` | `LLM07:2025`, `LLM02:2025` | Prompt extraction result, leaked-fragment evidence, reviewer decision |
-| `LLM-SEC-003` | RAG and External Content Trust Boundaries | `AML.T0051.001` | `LLM01:2025`, `LLM08:2025`, `LLM02:2025` | Indirect injection result, retrieved-content notes, source trust label |
-| `LLM-SEC-004` | Tool-Use Authorization and Containment | `AML.T0053`, `AML.T0051`, `AML.T0054` | `LLM06:2025`, `LLM01:2025` | Unauthorized tool-use attempt, authorization evidence, approval record |
-| `LLM-SEC-005` | Sensitive Data Handling | `AML.T0057`, `AML.T0056`, `AML.T0024.000`, `AML.T0024.001`, `AML.T0024.002` | `LLM02:2025`, `LLM07:2025`, `LLM08:2025` | Sensitive-output finding, redaction check, retrieval/access-control evidence |
-| `LLM-EVAL-001` | Adversarial Evaluation and Regression Testing | `AML.T0051`, `AML.T0054`, `AML.T0056` | `LLM01:2025`, `LLM02:2025`, `LLM06:2025`, `LLM07:2025`, `LLM08:2025` | Evaluation suite run, baseline result, regression result |
-| `LLM-EVAL-002` | Evaluation Evidence Retention | Evidence-retention support for all evaluated techniques | Evidence-retention support for all categories | Run ID, case ID/version, model metadata, response excerpt, mapped controls |
-| `LLM-MON-001` | AI Output Monitoring and Incident Detection | `AML.T0051`, `AML.T0054`, `AML.T0056`, `AML.T0057` | `LLM01:2025`, `LLM02:2025`, `LLM06:2025`, `LLM07:2025` | Detection indicator, flagged output, incident ticket reference |
-| `LLM-OPS-001` | AI Incident Response | `AML.T0051`, `AML.T0054`, `AML.T0056`, `AML.T0057` | `LLM01:2025`, `LLM02:2025`, `LLM06:2025`, `LLM07:2025`, `LLM08:2025` | Containment note, remediation action, retest evidence |
-| `LLM-TPRM-001` | AI Vendor and Model Provider Risk | Provider and dependency context | `LLM03:2025`, `LLM02:2025`, `LLM06:2025` | Vendor review notes, provider data-use terms, model change record |
+| Control | Control Name | Primary MITRE / OWASP Relevance | ISO/IEC 42001 Section 9 Relevance | EU AI Act Readiness Relevance | Evidence the Lab Can Produce |
+|---|---|---|---|---|---|
+| `LLM-GOV-001` | AI System Inventory and Use-Case Classification | System boundary context for all evaluated techniques and categories | 9.1, 9.2, 9.3 | Articles 9, 17 | Model/runtime metadata, prompt profile, system inventory notes |
+| `LLM-GOV-002` | AI Threat Modeling | `AML.T0051`, `AML.T0054`, `AML.T0056`; `LLM01`, `LLM02`, `LLM06`, `LLM07`, `LLM08` | 9.1, 9.2, 9.3 | Articles 9, 15, 17 | Evaluation case rationale, mapped threats, tested assumptions |
+| `LLM-SEC-001` | Prompt Injection Resistance | `AML.T0051`, `AML.T0051.001`; `LLM01` | 9.1, 9.2 | Articles 9, 12, 14, 15, 72 | Prompt injection result, full local response, evaluator decision, readiness gap |
+| `LLM-SEC-002` | System Prompt Leakage Prevention | `AML.T0056`; `LLM07`, `LLM02` | 9.1, 9.2, 9.3 | Articles 9, 12, 15, 17, 72 | Prompt extraction result, leaked-fragment evidence, reviewer decision |
+| `LLM-SEC-003` | RAG and External Content Trust Boundaries | `AML.T0051.001`; `LLM01`, `LLM08`, `LLM02` | 9.1, 9.2 | Articles 9, 12, 15, 72 | Indirect injection result, retrieved-content notes, source trust label |
+| `LLM-SEC-004` | Tool-Use Authorization and Containment | `AML.T0053`, `AML.T0051`, `AML.T0054`; `LLM06`, `LLM01` | 9.1, 9.2, 9.3 | Articles 9, 14, 15, 17 | Unauthorized tool-use attempt, authorization evidence, approval record |
+| `LLM-SEC-005` | Sensitive Data Handling | `AML.T0057`, `AML.T0056`; `LLM02`, `LLM07`, `LLM08` | 9.1, 9.2 | Articles 9, 12, 15, 17 | Sensitive-output finding, redaction check, retrieval/access-control evidence |
+| `LLM-EVAL-001` | Adversarial Evaluation and Regression Testing | `AML.T0051`, `AML.T0054`, `AML.T0056`; LLM risk categories under test | 9.1, 9.2, 9.3 | Articles 9, 12, 15, 72 | Evaluation suite run, baseline result, regression result |
+| `LLM-EVAL-002` | Evaluation Evidence Retention | Evidence-retention support for all evaluated techniques | 9.1, 9.2, 9.3 | Articles 12, 17, 72 | Run ID, case ID/version, model metadata, full local response, mapped controls |
+| `LLM-MON-001` | AI Output Monitoring and Incident Detection | `AML.T0051`, `AML.T0054`, `AML.T0056`, `AML.T0057`; `LLM01`, `LLM02`, `LLM06`, `LLM07` | 9.1, 9.3 | Articles 12, 15, 72 | Detection indicator, flagged output, incident ticket reference |
+| `LLM-OPS-001` | AI Incident Response | `AML.T0051`, `AML.T0054`, `AML.T0056`, `AML.T0057`; `LLM01`, `LLM02`, `LLM06`, `LLM07`, `LLM08` | 9.2, 9.3 | Articles 9, 17, 72 | Containment note, remediation action, retest evidence |
+| `LLM-TPRM-001` | AI Vendor and Model Provider Risk | Provider and dependency context; `LLM03`, `LLM02`, `LLM06` | 9.1, 9.2, 9.3 | Articles 9, 17 | Vendor review notes, provider data-use terms, model change record |
+
+## SaaS / Critical Digital Infrastructure Readiness Note
+
+For an Akamai-like provider, ELICIT uses a SaaS / critical digital infrastructure readiness lens. This does not classify a system as high-risk by itself. EU AI Act relevance depends on the actual AI system, intended use, jurisdiction, and whether the AI system is used as a safety component in critical digital infrastructure or another high-risk category.
 
 ## Example Traceability Paths
 

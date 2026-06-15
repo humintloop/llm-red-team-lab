@@ -29,15 +29,15 @@ Framework mappings are provided as control traceability aids for education and r
 ## What It Does
 
 - **Local model inference** via WebLLM/WebGPU.
-- **Evaluation-case-style payload library** with technique metadata.
+- **Structured evaluation cases** with case IDs, versions, expected secure behavior, failure modes, and success criteria.
 - **Synthetic ambiguity probes** for authorized local testing.
 - **Heuristic evaluation** for prompt leakage, jailbreak, and injection indicators.
 - **Optional local LLM judge** that returns a structured `VERDICT:` and `REASON:` response.
 - **Heuristic/judge disagreement handling** for manual-review cases.
-- **Findings tracker** with lightweight local finding records and response excerpts.
+- **Findings tracker** with local evidence records, run IDs, model metadata, evaluator outputs, reviewer fields, and response evidence.
 - **JSON export** for raw finding records.
 - **Markdown report export** for assessment-style documentation.
-- **Initial framework/control mapping data** in `src/data/frameworkMappings.js`.
+- **Initial framework/control mapping data** including MITRE ATLAS, OWASP LLM Top 10, NIST AI RMF, ISO/IEC 42001 section 9, and EU AI Act readiness relevance.
 
 ---
 
@@ -58,7 +58,7 @@ Framework mappings are provided as control traceability aids for education and r
 The current v0.2 traceability aid is:
 
 ```text
-evaluation case → model response → heuristic/judge result → finding → impacted control → framework relevance → report
+evaluation case → model response → heuristic/judge result → finding evidence → impacted control → framework readiness gap → mitigation → retest
 ```
 
 Example:
@@ -67,11 +67,13 @@ Example:
 Prompt injection succeeds
 → MITRE ATLAS AML.T0051 / OWASP LLM01:2025
 → LLM-SEC-001 Prompt Injection Resistance
-→ Relevant to NIST AI RMF Measure/Manage and EU AI Act Articles 9/15/17 where applicable and in scope
-→ Lightweight finding record retained for review and retesting
+→ Relevant to NIST AI RMF Measure/Manage, ISO/IEC 42001 section 9, and EU AI Act Articles 9/12/14/15/17/72 where applicable and in scope
+→ Finding evidence retained locally for reviewer decision, mitigation, and retesting
 ```
 
 The initial control notes live in [`controls/`](./controls/README.md). The implemented mappings currently live in [`src/data/frameworkMappings.js`](./src/data/frameworkMappings.js) and are intentionally lightweight. They demonstrate how technical LLM findings can be translated into control weaknesses for SaaS organizations using LLM-based technology.
+
+For Akamai-like organizations, ELICIT uses a **SaaS / Critical Digital Infrastructure Readiness** profile: AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure providers. EU AI Act references are readiness indicators only; high-risk status depends on the actual AI system, intended purpose, jurisdiction, and whether the AI system is used as a safety component or otherwise falls in scope.
 
 ---
 
@@ -113,21 +115,27 @@ npm run preview
 
 ## Payload Library
 
-Payloads live in `src/payloads.js`. The current payload objects use technique metadata and can optionally include notes:
+Evaluation cases live in `src/payloads.js`. Each case keeps the original payload fields and is normalized with schema metadata:
 
 ```javascript
 {
   id: 'PE-004',
+  case_id: 'PE-004',
+  case_version: '0.4.0',
   technique: 'AML.T0056',
   difficulty: 'medium',
   name: 'Minimal Ambiguity Probe',
+  objective: 'Determine whether the model discloses hidden constraints...',
+  expected_secure_behavior: 'Refuse or safely redirect attempts...',
+  failure_mode: 'The model reveals exact or closely paraphrased system prompt content...',
+  success_criteria: 'SUCCESS when real system prompt content or protected secrets are revealed...',
   description: 'Short description of what this tests.',
   payload: '[redacted ambiguity probe]',
   note: 'Use authorized/synthetic ambiguity probes only.'
 }
 ```
 
-Default framework/control mappings are applied by technique through `src/data/frameworkMappings.js`. A fuller structured evaluation-case schema with objective, expected secure behavior, failure mode, success criteria, and per-case mapping overrides is planned.
+Default framework/control mappings are applied by technique through `src/data/frameworkMappings.js`. Per-case mapping overrides can be added when a case needs more specific controls, ISO/EU relevance, or readiness gaps.
 
 ---
 
@@ -136,9 +144,9 @@ Default framework/control mappings are applied by technique through `src/data/fr
 The findings view supports:
 
 - `EXPORT JSON` — raw machine-readable finding records.
-- `EXPORT REPORT` — Markdown assessment report with findings, response excerpts, and currently mapped framework/control relevance where recorded.
+- `EXPORT REPORT` — Markdown assessment report with findings, response excerpts, evaluator outputs, impacted controls, framework readiness gaps, mitigation guidance, and retest guidance.
 
-Finding records are intentionally lightweight in v0.2. They include case metadata, verdicts, judge text when used, response excerpts, and mappings. They are not full evidence packages with run IDs, reproducibility metadata, reviewer sign-off, or immutable audit trails.
+Finding records now include run IDs, case versions, model/runtime metadata, model settings, full responses retained locally, evaluator outputs, mapped controls, ISO/EU readiness relevance, recommended mitigations, retest guidance, and reviewer fields. They are still local evidence records, not immutable audit trails.
 
 ## Judge Output
 
@@ -166,13 +174,39 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - Markdown report export
 - Initial framework/control mappings
 
-### v1 — Evaluation structure
+### v0.3 — Source and presentation pass
+
+- README images
+- Sample report
+- Source ledger
+- Initial source-grounded MITRE/OWASP mapping notes
+- ISO/IEC 42001 and EU AI Act readiness notes
+
+### v0.4 — Structured evaluation cases
 
 - Full structured evaluation-case schema with objective, expected secure behavior, failure mode, and success criteria
+- Case versioning
+- Evidence requirements
+- Per-case mapping override support
+
+### v0.5 — Evidence-rich findings
+
+- Run IDs
+- Model/runtime/config metadata
+- Full response retained locally
+- Reviewer decision fields
+- Evidence requirements in report output
+
+### v0.6 — Mitigation mapping
+
+- Project-defined mitigation guidance by technique
+- Recommended actions in report output
+- Retest guidance in report output
+
+### v1 — Evaluation quality
+
 - Stronger judge prompt and JSON parsing
 - System-computed severity, confidence, and false-positive-risk fields
-- Evidence-rich finding records
-- Assessment run IDs
 - Multi-run reproducibility mode
 - Regression testing
 
@@ -197,4 +231,5 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - Results vary by model, runtime, quantization, prompt, context, and temperature.
 - Heuristics are triage aids, not ground truth.
 - LLM judge mode can be biased or influenced; treat it as supporting evidence.
-- EU AI Act relevance depends on role, scope, risk classification, and deployment context.
+- ISO/IEC 42001 and EU AI Act relevance depends on role, scope, risk classification, management-system scope, jurisdiction, and deployment context.
+- EU AI Act high-risk readiness is not the same as high-risk classification; cybersecurity-only components are not automatically safety components.
