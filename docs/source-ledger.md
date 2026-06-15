@@ -3,6 +3,8 @@
 This ledger records the sources used for ELICIT mappings and control-language decisions.
 It is a traceability aid, not a legal or audit conclusion.
 
+See [`../ATTRIBUTION.md`](../ATTRIBUTION.md) for concise third-party attribution and license/source notes.
+
 ## Mapping Types
 
 - **Official source:** language or taxonomy maintained by the named organization.
