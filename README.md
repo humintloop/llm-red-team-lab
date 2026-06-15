@@ -36,7 +36,7 @@ Security issues in this repository should be reported through GitHub private sec
 - **Reviewer disposition workflow** for confirming, rejecting, retesting, or accepting risk on findings.
 - **JSON export** for raw evidence records.
 - **Markdown report export** for assessment-style documentation.
-- **Initial framework/control mapping data** including MITRE ATLAS, OWASP LLM Top 10, NIST AI RMF, ISO/IEC 42001 section 9, and EU AI Act readiness relevance.
+- **Initial framework/control mapping data** including ISO/IEC 42001 section 9, EU AI Act readiness relevance, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF.
 
 ---
 
@@ -67,7 +67,7 @@ Example:
 Prompt injection succeeds
 → MITRE ATLAS AML.T0051 / OWASP LLM01:2025
 → LLM-SEC-001 Prompt Injection Resistance
-→ Relevant to NIST AI RMF Measure/Manage, ISO/IEC 42001 section 9, and EU AI Act Articles 9/12/14/15/17/72 where applicable and in scope
+→ Relevant to ISO/IEC 42001 section 9, EU AI Act Articles 9/12/14/15/17/72, and NIST AI RMF Measure/Manage where applicable and in scope
 → Finding evidence retained locally for reviewer decision, mitigation, and retesting
 ```
 
@@ -115,7 +115,7 @@ npm run preview
 
 ## Payload Library
 
-Evaluation cases live in `src/payloads.js`. Each case keeps the original payload fields and is normalized with schema metadata:
+Evaluation cases live in `src/payloads.js`. Each case keeps the original payload fields and is normalized with schema metadata. The normalized shape looks like this:
 
 ```javascript
 {
@@ -170,7 +170,7 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - Evidence-rich findings with run IDs, model metadata, retained responses, and reviewer disposition
 - Markdown and JSON exports
 - Source ledger, sample report, and README imagery
-- MITRE ATLAS, OWASP LLM Top 10, NIST AI RMF, ISO/IEC 42001 section 9, and conditional EU AI Act readiness mappings
+- ISO/IEC 42001 section 9, conditional EU AI Act readiness, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF mappings
 - Project-defined mitigation and retest guidance
 
 ## What's Next
