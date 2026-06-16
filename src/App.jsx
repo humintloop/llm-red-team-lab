@@ -1,11 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { MLCEngine } from '@mlc-ai/web-llm';
 import {
-  Play, Square, Plus, Trash2, Download, Terminal,
-  Search, RefreshCw, FlaskConical, FileText, ChevronDown, ChevronUp,
+  Play, Square, Plus, Trash2, Terminal,
+  Search, ChevronDown, ChevronUp,
   AlertTriangle,
 } from 'lucide-react';
+import Header from './components/Header';
+import BriefingScreen from './components/BriefingScreen';
+import LoadingScreen from './components/LoadingScreen';
+import ProbeWorkspace from './components/ProbeWorkspace';
+import TriagePanel from './components/TriagePanel';
+import FindingsReport from './components/FindingsReport';
 import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
+import { CLUSTERS, getClusterForPayload } from './data/clusters';
 import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
 import { getMitigationMapping } from './data/mitigationMappings';
 import { downloadMarkdown, generateAssessmentReport } from './reports/reportGenerator';
@@ -21,6 +28,8 @@ const C = {
   red:      '#DC4838',
   redDim:   '#743025',
   redBg:    'rgba(220,72,56,.12)',
+  teal:     '#00CFC4',
+  tealBg:   'rgba(0,207,196,.10)',
   green:    '#4EBA6F',
   greenBg:  'rgba(78,186,111,.12)',
   blue:     '#6D8FD6',
@@ -75,16 +84,16 @@ const verdictColor = (v) => {
   if (verdict === 'SUCCESS') return C.red;
   if (verdict === 'PARTIAL') return C.amber;
   if (verdict === 'REVIEW') return C.blue;
-  if (verdict === 'FAILURE' || verdict === 'FAILED') return C.green;
+  if (verdict === 'FAILURE' || verdict === 'FAILED') return C.teal;
   return C.text2;
 };
 
 const verdictLabel = (v) => {
   const verdict = String(v || '').toUpperCase();
-  if (verdict === 'SUCCESS') return 'VULNERABLE';
-  if (verdict === 'PARTIAL') return 'REVIEW NEEDED';
-  if (verdict === 'REVIEW') return 'INCONCLUSIVE';
-  if (verdict === 'FAILURE' || verdict === 'FAILED') return 'DEFENDED';
+  if (verdict === 'SUCCESS') return 'PROBE SUCCEEDED';
+  if (verdict === 'PARTIAL') return 'PARTIAL HIT';
+  if (verdict === 'REVIEW') return 'REVIEW REQUIRED';
+  if (verdict === 'FAILURE' || verdict === 'FAILED') return 'MODEL HELD';
   return verdict || 'UNKNOWN';
 };
 
@@ -451,11 +460,16 @@ export default function App() {
   const selectedJudgeModel = JUDGE_MODELS.find(m => m.id === judgeModelId);
   const loadedModel = VICTIM_MODELS.find(m => m.id === loadedModelId);
   const modelReady = modelStatus === 'ready' && loadedModelId;
+  const selectedCluster = getClusterForPayload(selectedPayload);
   const selectedCaseMapping = selectedPayload ? buildCaseMapping(selectedPayload.technique, selectedPayload) : null;
   const finalEvalSummary = evalResult ? summarizeEvaluation(evalResult, judgeResult) : null;
-  const techniqueOptions = Object.values(TECHNIQUES)
-    .map(t => ({ ...t, count: PAYLOADS.filter(p => p.technique === t.id).length }))
-    .filter(t => t.count > 0);
+  const techniqueOptions = CLUSTERS.map(cluster => ({
+    id: cluster.code,
+    name: cluster.name,
+    owasp: cluster.owasp,
+    count: cluster.payloads.length,
+    colorKey: cluster.colorKey,
+  }));
   const difficultyOptions = ['low', 'medium', 'high'].map(level => ({
     level,
     count: PAYLOADS.filter(p => p.difficulty === level && (techFilter === 'ALL' || p.technique === techFilter)).length,
@@ -780,132 +794,31 @@ export default function App() {
         }
       `}</style>
 
-      {/* ═══ HEADER ══════════════════════════════════════════════════════════ */}
-      <header className="app-header">
-        {/* Wordmark */}
-        <div className="brand-lockup">
-          <img src={`${BRAND_BASE}brand/elicit-icon.png?v=${BRAND_VERSION}`} alt="ELICIT icon" className="brand-icon" />
-          <div className="brand-word" aria-label="ELICIT LLM Red Team Lab">
-            <div className="brand-title">ELICIT</div>
-            <div className="brand-subtitle">LLM RED TEAM LAB</div>
-          </div>
-          <span className="brand-context">Local-first adversarial assurance lab</span>
-        </div>
-
-        <div className="header-divider" style={{ width: 1, height: 24, background: C.border }} />
-
-        {/* Model selector */}
-        <div className="model-bar">
-          {modelReady && !modelConfigOpen ? (
-            <>
-              <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1 }}>TARGET</span>
-              <span style={{
-                fontSize: 13,
-                color: C.text1,
-                background: C.surface,
-                border: `1px solid ${guideStep === 'target' ? C.amber : C.border}`,
-                padding: '4px 8px',
-                borderRadius: 2,
-              }}>
-                {loadedModel?.name || loadedModelId} · READY
-              </span>
-              <button
-                onClick={() => setModelConfigOpen(true)}
-                style={{
-                  padding: '5px 10px', fontSize: 12, fontWeight: 700, letterSpacing: 1,
-                  background: guideStep === 'target' ? C.amberBg : 'transparent',
-                  border: `1px solid ${guideStep === 'target' ? C.amber : C.border}`,
-                  color: guideStep === 'target' ? C.amber : C.text3,
-                  cursor: 'pointer', borderRadius: 2,
-                  boxShadow: guideStep === 'target' ? '0 0 0 1px rgba(200,120,68,.18)' : 'none',
-                }}
-              >
-                CHANGE
-              </button>
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1 }}>TARGET MODEL</span>
-              <select
-                value={victimModelId}
-                onChange={e => setVictimModelId(e.target.value)}
-                disabled={modelStatus === 'loading' || running}
-                style={{
-                  background: C.surface, border: `1px solid ${guideStep === 'target' ? C.amber : C.border}`,
-                  color: C.text1, fontSize: 15, padding: '4px 8px',
-                  borderRadius: 2, cursor: 'pointer',
-                }}
-              >
-                {VICTIM_MODELS.map(m => (
-                  <option key={m.id} value={m.id}>{m.quickStart ? 'Quick Start - ' : ''}{m.name} ({m.size})</option>
-                ))}
-              </select>
-
-              {/* Load button */}
-              <button
-                onClick={() => loadModel(victimModelId)}
-                disabled={modelStatus === 'loading' || modelStatus === 'ready' && loadedModelId === victimModelId}
-                style={{
-                  padding: '5px 12px', fontSize: 14, fontWeight: 700, letterSpacing: 1,
-                  background: modelStatus === 'ready' && loadedModelId === victimModelId ? C.amberBg : C.surface,
-                  border: `1px solid ${guideStep === 'target' ? C.amber : modelStatus === 'ready' && loadedModelId === victimModelId ? C.amber : C.borderHi}`,
-                  color: modelStatus === 'ready' && loadedModelId === victimModelId ? C.amber : C.text2,
-                  cursor: 'pointer', borderRadius: 2,
-                  opacity: modelStatus === 'loading' ? 0.5 : 1,
-                  boxShadow: guideStep === 'target' ? '0 0 0 1px rgba(200,120,68,.18)' : 'none',
-                }}
-              >
-                {modelStatus === 'loading' ? 'LOADING…' : modelStatus === 'ready' && loadedModelId === victimModelId ? '● LOADED' : 'LOAD →'}
-              </button>
-            </>
-          )}
-
-          {/* Progress */}
-          {(modelStatus === 'loading' || judging) && (
-            <span style={{ fontSize: 13, color: C.amber, letterSpacing: 0.5, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {loadProgress}
-            </span>
-          )}
-          {modelStatus !== 'loading' && !modelReady && (
-            <span style={{ fontSize: 12, color: selectedVictimModel?.quickStart ? C.green : C.amber, letterSpacing: .2, maxWidth: 330, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {selectedVictimModel?.quickStart ? 'New? Start here: smallest first download.' : `First load downloads ${selectedVictimModel?.size || 'the model'} into this browser.`}
-            </span>
-          )}
-          <button
-            onClick={() => setAdvancedMode(p => !p)}
-            style={{
-              marginLeft: 'auto',
-              padding: '5px 10px',
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: 1,
-              background: advancedMode ? C.amberBg : 'transparent',
-              border: `1px solid ${advancedMode ? C.amber + '60' : C.border}`,
-              color: advancedMode ? C.amber : C.text3,
-              cursor: 'pointer',
-              borderRadius: 2,
-            }}
-          >
-            {advancedMode ? 'ADVANCED ON' : 'ADVANCED'}
-          </button>
-        </div>
-
-        {/* Tab nav */}
-        <div className="tab-nav">
-          {[['lab', 'LAB', <FlaskConical size={11} />], ['findings', `FINDINGS (${findings.length})`, <FileText size={11} />]].map(([tab, label, icon]) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 12px', fontSize: 14, fontWeight: 700, letterSpacing: 1,
-              background: activeTab === tab ? C.amberBg : 'transparent',
-              border: `1px solid ${activeTab === tab ? C.amber : C.border}`,
-              color: activeTab === tab ? C.amber : C.text2, cursor: 'pointer',
-              borderRadius: 2,
-            }}>
-              {icon}{label}
-            </button>
-          ))}
-        </div>
-      </header>
+      <Header
+        C={C}
+        brandBase={BRAND_BASE}
+        brandVersion={BRAND_VERSION}
+        modelReady={modelReady}
+        modelConfigOpen={modelConfigOpen}
+        loadedModel={loadedModel}
+        loadedModelId={loadedModelId}
+        guideStep={guideStep}
+        setModelConfigOpen={setModelConfigOpen}
+        victimModelId={victimModelId}
+        setVictimModelId={setVictimModelId}
+        modelStatus={modelStatus}
+        running={running}
+        victimModels={VICTIM_MODELS}
+        loadModel={loadModel}
+        judging={judging}
+        loadProgress={loadProgress}
+        selectedVictimModel={selectedVictimModel}
+        advancedMode={advancedMode}
+        setAdvancedMode={setAdvancedMode}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        findingsCount={findings.length}
+      />
 
       {activeTab === 'lab' && (modelStatus !== 'ready' || judgeMode) && (
         <div className="runtime-warning" style={{
@@ -1063,7 +976,7 @@ export default function App() {
 
       {/* ═══ LAB VIEW ════════════════════════════════════════════════════════ */}
       {activeTab === 'lab' && (
-        <div className="lab-shell" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <ProbeWorkspace C={C}>
 
           {/* ── LEFT: Config + Payload Library ── */}
             <div className="lab-sidebar" style={{
@@ -1222,6 +1135,31 @@ export default function App() {
 
           {/* ── RIGHT: Terminal + Eval ── */}
           <div className="lab-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(7,9,18,.52)' }}>
+            <BriefingScreen
+              C={C}
+              cluster={selectedCluster}
+              payload={useCustom ? null : selectedPayload}
+              mapping={selectedCaseMapping}
+            />
+
+            {modelStatus === 'loading' && (
+              <LoadingScreen
+                C={C}
+                mode="model"
+                modelName={selectedVictimModel?.name}
+                modelSize={selectedVictimModel?.size}
+                progress={loadProgress}
+              />
+            )}
+
+            {judging && (
+              <LoadingScreen
+                C={C}
+                mode="judge"
+                modelName={selectedJudgeModel?.name}
+                progress={loadProgress}
+              />
+            )}
 
             {/* Payload editor / preview */}
             <div className="payload-panel" style={{
@@ -1379,170 +1317,47 @@ export default function App() {
                 {running && <span style={{ animation: 'blink 1s infinite', color: C.amber }}>▋</span>}
               </div>
 
-              {/* Eval results */}
-              {evalResult && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, animation: 'fadeIn .2s ease' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '12px 14px',
-                    background: `${verdictColor(finalEvalSummary?.finalVerdict)}0f`,
-                    border: `1px solid ${verdictColor(finalEvalSummary?.finalVerdict)}40`,
-                    borderRadius: 4,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>VERDICT SUMMARY</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                        <span style={{ fontSize: 18, color: verdictColor(finalEvalSummary?.finalVerdict), fontWeight: 800 }}>
-                          {verdictLabel(finalEvalSummary?.finalVerdict || evalResult.verdict)}
-                        </span>
-                        <span style={{ fontSize: 12, color: C.text2, background: C.bg, border: `1px solid ${C.border}`, padding: '1px 6px', borderRadius: 2 }}>
-                          HEURISTIC {verdictLabel(evalResult.verdict)}
-                        </span>
-                        {judgeMode && judgeResult && (
-                          <span style={{ fontSize: 12, color: C.text2, background: C.bg, border: `1px solid ${C.border}`, padding: '1px 6px', borderRadius: 2 }}>
-                            JUDGE {verdictLabel(judgeResult.verdict)}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.45 }}>
-                        {finalEvalSummary?.note || evalResult.reason}
-                      </div>
-                      <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.45, marginTop: 5 }}>
-                        Next: save this result as a finding if it should become evidence, then review/export it from Findings.
-                      </div>
-                    </div>
-                    <button
-                      onClick={addFinding}
-                      disabled={judging || (judgeMode && !judgeResult)}
-                      style={{
-                        padding: '9px 13px', background: C.amberBg, border: `1px solid ${C.amber}40`,
-                        color: C.amber, fontSize: 13, fontWeight: 700, letterSpacing: 1,
-                        cursor: judging || (judgeMode && !judgeResult) ? 'not-allowed' : 'pointer',
-                        opacity: judging || (judgeMode && !judgeResult) ? 0.45 : 1,
-                        borderRadius: 2, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        boxShadow: nextStepId === 'review' ? '0 0 0 2px rgba(200,120,68,.20)' : 'none',
-                      }}
-                    >
-                      <Plus size={13} />
-                      {judging ? 'WAIT' : 'SAVE FINDING'}
-                    </button>
-                  </div>
-                  {(advancedMode || judgeMode) && (
-                  <div className="eval-detail-row" style={{ display: 'flex', gap: 10 }}>
-                  {/* Heuristic result */}
-                  <div style={{
-                    flex: 1, padding: '10px 12px',
-                    background: `${verdictColor(evalResult.verdict)}08`,
-                    border: `1px solid ${verdictColor(evalResult.verdict)}30`,
-                    borderRadius: 2,
-                  }}>
-                    <div style={{ fontSize: 13, color: C.text2, letterSpacing: 1, marginBottom: 5 }}>HEURISTIC EVAL</div>
-                    <div style={{ fontSize: 15, color: verdictColor(evalResult.verdict), fontWeight: 700, marginBottom: 4 }}>
-                      {verdictLabel(evalResult.verdict)} · {evalResult.label}
-                    </div>
-                    <div style={{ fontSize: 14, color: C.text2 }}>{evalResult.reason}</div>
-                  </div>
-
-                  {/* Judge result */}
-                  {judgeMode && (
-                    <div style={{
-                      flex: 1, padding: '10px 12px',
-                      background: judgeResult ? `${verdictColor(judgeResult.verdict)}14` : C.amberBg,
-                      border: `1px solid ${judgeResult ? verdictColor(judgeResult.verdict) + '40' : C.amber + '40'}`,
-                      borderRadius: 2,
-                    }}>
-                      <div style={{ fontSize: 13, color: C.text2, letterSpacing: 1, marginBottom: 5 }}>
-                        LLM JUDGE {judging && <span style={{ color: C.amber }}>EVALUATING…</span>}
-                      </div>
-                      {judgeResult ? (
-                        <>
-                          <div style={{ fontSize: 15, color: verdictColor(judgeResult.verdict), fontWeight: 700, marginBottom: 4 }}>
-                            {verdictLabel(judgeResult.verdict)}
-                          </div>
-                          <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.5 }}>{judgeResult.text}</div>
-                        </>
-                      ) : judging ? (
-                        <div style={{ fontSize: 14, color: C.amber }}>
-                          <RefreshCw size={10} style={{ display: 'inline', animation: 'spin 1s linear infinite', marginRight: 4 }} />
-                          Swapping to judge model…
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                  </div>
-                  )}
-                  {judgeMode && judgeResult && summarizeEvaluation(evalResult, judgeResult).disagreement && (
-                    <div style={{ padding: '8px 12px', background: C.amberBg, border: `1px solid ${C.amber}40`, borderRadius: 2 }}>
-                      <div style={{ fontSize: 13, color: C.amber, letterSpacing: 1, marginBottom: 4, fontWeight: 700 }}>REVIEW REQUIRED</div>
-                      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.45 }}>
-                        Heuristic says {verdictLabel(evalResult.verdict)}, judge says {verdictLabel(judgeResult.verdict)}. The evaluators materially disagree, so treat this as a manual-review item and keep both signals in the finding.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <TriagePanel
+                C={C}
+                evalResult={evalResult}
+                finalEvalSummary={finalEvalSummary}
+                judgeMode={judgeMode}
+                judgeResult={judgeResult}
+                judging={judging}
+                addFinding={addFinding}
+                saveDisabled={saveDisabled}
+                nextStepId={nextStepId}
+                summarizeEvaluation={summarizeEvaluation}
+              />
             </div>
           </div>
-        </div>
+        </ProbeWorkspace>
       )}
 
       {/* ═══ FINDINGS VIEW ════════════════════════════════════════════════════ */}
       {activeTab === 'findings' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '10px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1.5, fontWeight: 700, flex: 1 }}>
-              REVIEW QUEUE · {findings.length} FINDING{findings.length !== 1 ? 'S' : ''}
-            </span>
-            {findings.length > 0 && (
-              <>
-                <button onClick={exportFindings} style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-                  background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text2,
-                  fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
-                }}>
-                  <Download size={11} /> EXPORT JSON
-                </button>
-                <button onClick={exportReport} style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-                  background: C.amberBg, border: `1px solid ${C.amber}40`, color: C.amber,
-                  fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
-                }}>
-                  <FileText size={11} /> EXPORT REPORT
-                </button>
-                <button onClick={() => { if (confirm('Clear all findings?')) setFindings([]); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-                  background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text3,
-                  fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
-                }}>
-                  <Trash2 size={11} /> CLEAR
-                </button>
-              </>
-            )}
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ background: C.amberBg, border: `1px solid ${C.amber}40`, color: C.text2, padding: '8px 10px', fontSize: 13, lineHeight: 1.45, borderRadius: 2 }}>
-              Findings are stored in this browser only. Export JSON or Markdown before clearing site data, changing browsers, or relying on this as a long-term record.
+        <FindingsReport
+          C={C}
+          findings={findings}
+          exportFindings={exportFindings}
+          exportReport={exportReport}
+          clearFindings={() => { if (confirm('Clear all findings?')) setFindings([]); }}
+        >
+          {findings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: C.text3, fontSize: 16 }}>
+              No findings in review. Run an evaluation and save a finding to start the queue.
             </div>
-            {findings.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: C.text3, fontSize: 16 }}>
-                No findings in review. Run an evaluation and save a finding to start the queue.
-              </div>
-            ) : (
-              findings.map((f) => (
-                <FindingCard
-                  key={f.id}
-                  finding={f}
-                  onUpdate={(patch) => updateFinding(f.id, patch)}
-                  onDelete={() => setFindings(p => p.filter(x => x.id !== f.id))}
-                />
-              ))
-            )}
-          </div>
-        </div>
+          ) : (
+            findings.map((f) => (
+              <FindingCard
+                key={f.id}
+                finding={f}
+                onUpdate={(patch) => updateFinding(f.id, patch)}
+                onDelete={() => setFindings(p => p.filter(x => x.id !== f.id))}
+              />
+            ))
+          )}
+        </FindingsReport>
       )}
     </div>
   );
