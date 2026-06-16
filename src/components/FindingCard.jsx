@@ -19,7 +19,7 @@ const reviewStatusLabel = (status = '') => String(status)
   .replace('AUTO_TRIAGED', 'AUTO TRIAGED')
   .replaceAll('_', ' ');
 
-export default function FindingCard({ C, finding: f, onUpdate, onDelete }) {
+export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [frameworkOpen, setFrameworkOpen] = useState(false);
   const vc = getVerdictColor(f.verdict, C);
@@ -28,6 +28,8 @@ export default function FindingCard({ C, finding: f, onUpdate, onDelete }) {
   const officialMitigations = f.officialMitigations || f.official_mitigations || mitigation.official_mitigations || [];
   const recommendedMitigations = f.recommendedMitigations || f.recommended_mitigations || mitigation.recommended_mitigations || [];
   const retestGuidance = f.retestGuidance || f.retest_guidance || mitigation.retest_guidance || [];
+  const effectiveness = f.effectivenessAssessment || 'NOT_ASSESSED';
+  const effectivenessColor = effectiveness === 'ABSENT' ? C.red : effectiveness === 'INEFFECTIVE' ? C.amber : effectiveness === 'PARTIALLY_EFFECTIVE' ? C.amberDim : effectiveness === 'EFFECTIVE' ? C.teal : C.text3;
 
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${vc}`, borderRadius: 3, animation: 'fadeUp .2s ease' }}>
@@ -39,6 +41,7 @@ export default function FindingCard({ C, finding: f, onUpdate, onDelete }) {
             {f.owasp && <span style={{ fontSize: 12, color: C.text2, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{f.owasp}</span>}
             {f.reviewStatus && f.reviewStatus !== 'AUTO_TRIAGED' && <span style={{ fontSize: 12, color: f.reviewStatus === 'REVIEW_REQUIRED' ? C.amber : C.warmDim, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{reviewStatusLabel(f.reviewStatus)}</span>}
             <span style={{ fontSize: 12, color: reviewerDecision === 'CONFIRMED' ? C.red : reviewerDecision === 'FALSE_POSITIVE' ? C.green : C.text2, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{reviewerDecision.replaceAll('_', ' ')}</span>
+            <span style={{ fontSize: 12, color: effectivenessColor, padding: '1px 6px', background: C.hover, border: `1px solid ${effectivenessColor}55`, borderRadius: 2 }}>{effectiveness.replaceAll('_', ' ')}</span>
             <span style={{ fontSize: 13, color: C.text3, marginLeft: 'auto' }}>{new Date(f.timestamp).toLocaleString()}</span>
           </div>
           <div style={{ fontSize: 15, color: C.text1, fontWeight: 600, marginBottom: 3 }}>{f.payloadName}</div>
@@ -49,6 +52,19 @@ export default function FindingCard({ C, finding: f, onUpdate, onDelete }) {
 
       {expanded && (
         <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {auditorView && (
+            <div style={{ background: C.amberBg, border: `1px solid ${C.amber}44`, borderLeft: `3px solid ${C.amber}`, borderRadius: 3, padding: '10px 12px' }}>
+              <div style={{ fontSize: 13, color: C.amber, letterSpacing: 1, fontWeight: 800, marginBottom: 6 }}>AUDITOR VIEW</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 8 }}>
+                <Mini C={C} label="System" value={f.systemUnderTest || 'Not recorded'} />
+                <Mini C={C} label="Prompt hash" value={f.promptHash || 'Not recorded'} />
+                <Mini C={C} label="Control" value={(f.selectedControlIds || f.mappedControls || []).join(', ') || 'Not recorded'} />
+                <Mini C={C} label="Effectiveness" value={effectiveness.replaceAll('_', ' ')} />
+              </div>
+              <Block C={C} label="CONTROL GAP STATEMENT" bright>{f.controlGapStatement || 'No control gap statement recorded.'}</Block>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 220, flex: '0 1 280px' }}>
               <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>REVIEWER DECISION</div>
@@ -148,6 +164,15 @@ function ListBlock({ C, label, items }) {
       <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
         {items.map((item, idx) => <div key={idx}>- {item}</div>)}
       </div>
+    </div>
+  );
+}
+
+function Mini({ C, label, value }) {
+  return (
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '7px 8px', borderRadius: 2 }}>
+      <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 12, color: C.text1, lineHeight: 1.4 }}>{value}</div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ChevronRight, FileText, FolderOpen, ShieldCheck } from 'lucide-react';
 import { ASSURANCE_PROFILE, CONTROL_SET, FRAMEWORK_REFERENCES } from '../data/frameworkMappings';
 import { getVerdictColor, getVerdictLabel } from './VerdictBanner';
@@ -24,7 +25,8 @@ function groupFindingsByCase(findings = []) {
   return [...grouped.values()].sort((a, b) => new Date(b.latestTimestamp || 0) - new Date(a.latestTimestamp || 0));
 }
 
-export default function DossierHome({ C, findings, clusters, onEnter, onReport }) {
+export default function DossierHome({ C, findings, clusters, activeCase, onEnter, onResume, onReport }) {
+  const [profileOpen, setProfileOpen] = useState(false);
   const cases = groupFindingsByCase(findings);
   const controls = Object.values(CONTROL_SET);
   const frameworkFamilies = [
@@ -37,6 +39,17 @@ export default function DossierHome({ C, findings, clusters, onEnter, onReport }
 
   return (
     <main className="es-card" style={{ width: '100%', maxWidth: 1160, margin: '0 auto', padding: '34px 22px 56px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {activeCase?.caseId && (
+        <section style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: C.amberBg, border: `1px solid ${C.amber}55`, borderLeft: `3px solid ${C.amber}`, borderRadius: 5, padding: '12px 14px' }}>
+          <div style={{ flex: 1, minWidth: 260, color: C.text1, fontSize: 13, fontWeight: 800, letterSpacing: 1 }}>
+            &gt; RESUME {activeCase.caseId} — Probe {Math.min((activeCase.probeIndex || 0) + 1, activeCase.total || 1)}/{activeCase.total || 0} · {activeCase.findingsCount || 0} finding{activeCase.findingsCount === 1 ? '' : 's'}
+          </div>
+          <button onClick={onResume} style={primaryButton(C)}>
+            CONTINUE INVESTIGATION <ChevronRight size={14} />
+          </button>
+        </section>
+      )}
+
       <section className="home-hero-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(260px, .8fr)', gap: 14 }}>
         <div style={{ background: C.panel, border: `1px solid ${C.borderHi}`, borderLeft: `3px solid ${C.amber}`, borderRadius: 5, padding: 22 }}>
           <div style={{ fontSize: 10, color: C.text3, letterSpacing: 2, textTransform: 'uppercase' }}>Local-first adversarial assurance</div>
@@ -57,7 +70,14 @@ export default function DossierHome({ C, findings, clusters, onEnter, onReport }
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, padding: 18 }}>
           <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 12 }}>Assurance profile</div>
           <div style={{ fontSize: 15, color: C.text1, fontWeight: 800, lineHeight: 1.45 }}>{ASSURANCE_PROFILE.label}</div>
-          <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.6, marginTop: 10 }}>{ASSURANCE_PROFILE.scope_note}</div>
+          <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.6, marginTop: 10 }}>
+            {profileOpen
+              ? ASSURANCE_PROFILE.scope_note
+              : 'For CDN, edge, cybersecurity, cloud, or critical digital infrastructure SaaS providers where AI features may support security operations.'}
+          </div>
+          <button onClick={() => setProfileOpen(v => !v)} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.amber, cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>
+            {profileOpen ? 'collapse' : 'expand'}
+          </button>
         </div>
       </section>
 
@@ -71,7 +91,12 @@ export default function DossierHome({ C, findings, clusters, onEnter, onReport }
       <section className="home-hero-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(300px, .9fr)', gap: 14 }}>
         <Panel C={C} title="Past Cases / Evidence Dossiers" icon={<FolderOpen size={13} />}>
           {cases.length === 0 ? (
-            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.55 }}>No local case dossiers yet. Findings appear here after you log evidence from a probe.</div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.55 }}>No previous cases yet.</div>
+              <button onClick={onEnter} style={{ ...ghostButton(C), justifyContent: 'center' }}>
+                START YOUR FIRST INVESTIGATION <ChevronRight size={13} />
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {cases.slice(0, 6).map(item => (

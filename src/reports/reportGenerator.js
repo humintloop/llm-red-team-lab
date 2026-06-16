@@ -184,3 +184,95 @@ export function downloadMarkdown(filename, markdown) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+const escapeHtml = (value = '') => String(value || '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+
+export function generateAuditBriefHtml(findings = [], metadata = {}) {
+  const generatedAt = new Date().toISOString();
+  const activeFindings = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE');
+  const controls = [...new Set(activeFindings.flatMap(f => f.selectedControlIds || f.mappedControls || f.mapped_controls || []))]
+    .map(id => CONTROL_SET[id]).filter(Boolean);
+  const rows = activeFindings.map(finding => {
+    const controlsText = (finding.selectedControlIds || finding.mappedControls || finding.mapped_controls || [])
+      .map(id => CONTROL_SET[id] ? `${id} ${CONTROL_SET[id].name}` : id)
+      .join('; ');
+    const frameworks = frameworkList(finding).replaceAll('\n', '<br>');
+    return `<section class="finding">
+      <div class="finding-head">
+        <div><span>FINDING</span><strong>${escapeHtml(finding.findingId || finding.id)}</strong></div>
+        <div><span>VERDICT</span><strong>${escapeHtml(finding.verdict || 'REVIEW')}</strong></div>
+        <div><span>EFFECTIVENESS</span><strong>${escapeHtml(finding.effectivenessAssessment || 'NOT ASSESSED')}</strong></div>
+      </div>
+      <h2>${escapeHtml(finding.payloadName || 'Untitled finding')}</h2>
+      <div class="grid">
+        <p><b>Analyst</b>${escapeHtml(finding.analyst || 'Not recorded')}</p>
+        <p><b>System Under Test</b>${escapeHtml(finding.systemUnderTest || 'Not recorded')}</p>
+        <p><b>Case ID</b>${escapeHtml(finding.caseFileId || finding.caseId || 'Not recorded')}</p>
+        <p><b>Model</b>${escapeHtml(finding.victimModel || 'Not recorded')}</p>
+        <p><b>System Prompt Hash</b>${escapeHtml(finding.promptHash || 'Not recorded')}</p>
+        <p><b>Controls</b>${escapeHtml(controlsText || 'Not recorded')}</p>
+      </div>
+      <h3>Control Gap Statement</h3>
+      <p>${escapeHtml(finding.controlGapStatement || 'Not recorded')}</p>
+      <h3>Evidence Summary</h3>
+      <pre>${escapeHtml(truncate(finding.responseFull || finding.response || '', 1800))}</pre>
+      <h3>Framework Implications</h3>
+      <p>${frameworks}</p>
+      <h3>Retest Criteria</h3>
+      <p>${escapeHtml((finding.retestGuidance || finding.retest_guidance || []).join(' ') || 'Rerun the same case and compare against this evidence record.')}</p>
+    </section>`;
+  }).join('\n');
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>ELICIT Audit Brief</title>
+<style>
+body{margin:0;background:#0A0C16;color:#E6D6C8;font-family:"JetBrains Mono",ui-monospace,monospace;line-height:1.55}
+.banner{background:#C87844;color:#0A0C16;padding:10px 24px;font-weight:900;letter-spacing:2px;text-align:center}
+main{max-width:1100px;margin:0 auto;padding:28px 22px 60px}
+h1{color:#C87844;letter-spacing:4px;margin:0 0 8px}
+h2{color:#E6D6C8;margin:14px 0 8px}
+h3{color:#C87844;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;margin:18px 0 6px}
+.meta,.finding{border:1px solid #1C2238;background:#0D111D;border-radius:4px;padding:16px;margin:14px 0}
+.finding{border-left:3px solid #C87844}
+.finding-head,.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.finding-head div,.grid p{background:#0A0C16;border:1px solid #1C2238;padding:8px;margin:0}
+span,b{display:block;color:#68738A;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+strong{color:#E6D6C8}
+pre{white-space:pre-wrap;background:#0A0C16;border:1px solid #1C2238;padding:12px;max-height:360px;overflow:auto}
+.foot{color:#68738A;font-size:12px;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="banner">UNCLASSIFIED // AI ASSURANCE WORKPAPER // LOCAL-FIRST EVIDENCE</div>
+<main>
+  <h1>ELICIT AUDIT BRIEF</h1>
+  <div class="meta">
+    <p><b>Generated</b>${escapeHtml(generatedAt)}</p>
+    <p><b>Assurance Profile</b>${escapeHtml(metadata.assuranceProfile || ASSURANCE_PROFILE.label)}</p>
+    <p><b>Findings</b>${activeFindings.length}</p>
+    <p><b>Impacted Controls</b>${controls.map(c => escapeHtml(`${c.id} ${c.name}`)).join('<br>') || 'None recorded'}</p>
+  </div>
+  ${rows || '<p>No active findings recorded.</p>'}
+  <p class="foot">Framework mappings are traceability aids and do not constitute legal, audit, or certification conclusions. Evidence was generated locally in the browser.</p>
+</main>
+</body>
+</html>`;
+}
+
+export function downloadHtml(filename, html) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

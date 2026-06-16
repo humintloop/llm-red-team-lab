@@ -12,9 +12,9 @@ import ConversationTranscript from './components/ConversationTranscript';
 import FrameworkMappingExplainer from './components/FrameworkMappingExplainer';
 import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
 import { CLUSTERS } from './data/clusters';
-import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
+import { ASSURANCE_PROFILE, CONTROL_SET, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
 import { getMitigationMapping } from './data/mitigationMappings';
-import { downloadMarkdown, generateAssessmentReport } from './reports/reportGenerator';
+import { downloadHtml, downloadMarkdown, generateAssessmentReport, generateAuditBriefHtml } from './reports/reportGenerator';
 import { getVerdictColor, getVerdictLabel } from './components/VerdictBanner';
 import FindingCard from './components/FindingCard';
 
@@ -73,6 +73,28 @@ const DIFFICULTY_COLOR = { low: C.coolDim, medium: C.amberDim, high: C.amber };
 
 const createRunId = () => `run-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 const verdictRank = (v = '') => ({ FAILURE: 0, FAILED: 0, REVIEW: 1, PARTIAL: 2, SUCCESS: 3 }[String(v).toUpperCase()] ?? 1);
+const ACTIVE_CASE_KEY = 'elicit-active-case';
+
+const loadActiveCase = () => {
+  try { return JSON.parse(localStorage.getItem(ACTIVE_CASE_KEY) || '{}'); } catch { return {}; }
+};
+
+const simplePromptHash = async (text = '') => {
+  if (!window.crypto?.subtle) return 'hash-unavailable';
+  const bytes = new TextEncoder().encode(text);
+  const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const draftControlGapStatement = ({ controlIds = [], response = '', probe, effectiveness = 'PARTIALLY_EFFECTIVE' }) => {
+  const control = CONTROL_SET[controlIds[0]] || CONTROL_SET['LLM-EVAL-001'];
+  const requirement = control?.objective || 'produce repeatable evidence for AI assurance review';
+  const observed = response
+    ? 'produced behavior that requires reviewer assessment against the expected secure behavior'
+    : 'has not yet produced captured evidence';
+  const condition = probe?.name || 'the selected adversarial probe';
+  return `Control ${control.id} (${control.name}) requires the system to ${requirement}. This finding demonstrates the system ${observed} under ${condition}, indicating the control is ${effectiveness.replaceAll('_', ' ').toLowerCase()}.`;
+};
 
 function summarizeEvaluation(heuristic, judge) {
   const heuristicVerdict = heuristic?.verdict || 'REVIEW';
@@ -97,6 +119,7 @@ function summarizeEvaluation(heuristic, judge) {
 const STAGE = { HOME: 'home', CASE: 'case', LOADING: 'loading', PROBE: 'probe', TRIAGE: 'triage', REPORT: 'report' };
 
 export default function App() {
+  const savedCase = loadActiveCase();
   // Engine
   const engineRef = useRef(null);
   const [modelStatus, setModelStatus] = useState('idle'); // idle|loading|ready|error
@@ -104,18 +127,21 @@ export default function App() {
   const [loadedModelId, setLoadedModelId] = useState(null);
 
   // Case setup
-  const [victimModelId, setVictimModelId] = useState(VICTIM_MODELS[0].id);
-  const [judgeModelId, setJudgeModelId] = useState(JUDGE_MODELS[0].id);
-  const [victimPrompt, setVictimPrompt] = useState(PRESETS[0].prompt);
+  const [caseId, setCaseId] = useState(savedCase.caseId || `AI-${Date.now().toString(36).toUpperCase().slice(-6)}`);
+  const [systemUnderTest, setSystemUnderTest] = useState(savedCase.systemUnderTest || '');
+  const [victimModelId, setVictimModelId] = useState(savedCase.victimModelId || VICTIM_MODELS[0].id);
+  const [judgeModelId, setJudgeModelId] = useState(savedCase.judgeModelId || JUDGE_MODELS[0].id);
+  const [victimPrompt, setVictimPrompt] = useState(savedCase.victimPrompt || PRESETS[0].prompt);
+  const [promptHash, setPromptHash] = useState('');
   const [presetId, setPresetId] = useState(PRESETS[0].id);
-  const [clusterId, setClusterId] = useState(CLUSTERS[0]?.id || null);
-  const [judgeMode, setJudgeMode] = useState(false);
-  const [analyst, setAnalyst] = useState(() => localStorage.getItem('elicit-analyst') || '');
-  const caseIdRef = useRef(`AI-${Date.now().toString(36).toUpperCase().slice(-6)}`);
+  const [clusterId, setClusterId] = useState(savedCase.clusterId || CLUSTERS[0]?.id || null);
+  const [judgeMode, setJudgeMode] = useState(Boolean(savedCase.judgeMode));
+  const [analyst, setAnalyst] = useState(() => savedCase.analyst || localStorage.getItem('elicit-analyst') || '');
+  const [selectedControlIds, setSelectedControlIds] = useState(savedCase.selectedControlIds || ['LLM-SEC-001']);
 
   // Flow
   const [stage, setStage] = useState(STAGE.HOME);
-  const [probeIndex, setProbeIndex] = useState(0);
+  const [probeIndex, setProbeIndex] = useState(savedCase.probeIndex || 0);
   const [attackFilter, setAttackFilter] = useState('ALL');
   const [attackQuery, setAttackQuery] = useState('');
 
@@ -127,6 +153,10 @@ export default function App() {
   const [judgeResult, setJudgeResult] = useState(null);
   const abortRef = useRef(false);
   const [loggedFlash, setLoggedFlash] = useState(null);
+  const [controlGapStatement, setControlGapStatement] = useState('');
+  const [effectivenessAssessment, setEffectivenessAssessment] = useState('PARTIALLY_EFFECTIVE');
+  const [auditorView, setAuditorView] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(savedCase.updatedAt || null);
 
   // Findings
   const [findings, setFindings] = useState(() => {
@@ -135,6 +165,29 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('elicit-findings', JSON.stringify(findings)); }, [findings]);
   useEffect(() => { if (analyst) localStorage.setItem('elicit-analyst', analyst); }, [analyst]);
+  useEffect(() => {
+    let cancelled = false;
+    simplePromptHash(victimPrompt).then(hash => { if (!cancelled) setPromptHash(hash); });
+    return () => { cancelled = true; };
+  }, [victimPrompt]);
+  useEffect(() => {
+    const updatedAt = new Date().toISOString();
+    localStorage.setItem(ACTIVE_CASE_KEY, JSON.stringify({
+      caseId,
+      systemUnderTest,
+      analyst,
+      victimModelId,
+      judgeModelId,
+      victimPrompt,
+      presetId,
+      clusterId,
+      probeIndex,
+      judgeMode,
+      selectedControlIds,
+      updatedAt,
+    }));
+    setLastSavedAt(updatedAt);
+  }, [caseId, systemUnderTest, analyst, victimModelId, judgeModelId, victimPrompt, presetId, clusterId, probeIndex, judgeMode, selectedControlIds]);
 
   const cluster = CLUSTERS.find(c => c.id === clusterId) || CLUSTERS[0];
   const clusterPayloads = cluster?.payloads || [];
@@ -143,6 +196,23 @@ export default function App() {
   const selectedJudgeModel = JUDGE_MODELS.find(m => m.id === judgeModelId);
   const selectedVictimModel = VICTIM_MODELS.find(m => m.id === victimModelId);
   const loadedModel = VICTIM_MODELS.find(m => m.id === loadedModelId);
+  const currentCaseFindings = findings.filter(f => f.caseFileId === caseId);
+  const progressOutcomes = clusterPayloads.reduce((acc, payload) => {
+    const finding = currentCaseFindings.find(f => f.caseId === (payload.case_id || payload.id));
+    if (finding) acc[payload.id] = finding.verdict;
+    return acc;
+  }, {});
+  if (probe && evalResult) progressOutcomes[probe.id] = evalResult.verdict;
+
+  useEffect(() => {
+    if (!probe || !response || !evalResult) return;
+    setControlGapStatement(draftControlGapStatement({
+      controlIds: selectedControlIds,
+      response,
+      probe,
+      effectiveness: effectivenessAssessment,
+    }));
+  }, [probe?.id, response, evalResult, selectedControlIds, effectivenessAssessment]);
 
   // ── Model loading ──
   const loadModel = async (modelId) => {
@@ -178,6 +248,7 @@ export default function App() {
 
   const resetProbeState = () => {
     setResponse(''); setEvalResult(null); setJudgeResult(null);
+    setControlGapStatement(''); setEffectivenessAssessment('PARTIALLY_EFFECTIVE');
     setRunning(false); setJudging(false); setLoggedFlash(null); abortRef.current = false;
   };
 
@@ -280,14 +351,23 @@ export default function App() {
     const mapping = buildCaseMapping(tech, probe);
     const mitigation = getMitigationMapping(tech);
     const evalSummary = summarizeEvaluation(evalResult, judgeResult);
+    const gapStatement = controlGapStatement || draftControlGapStatement({
+      controlIds: selectedControlIds.length ? selectedControlIds : mapping.mapped_controls,
+      response,
+      probe,
+      effectiveness: effectivenessAssessment,
+    });
     const timestamp = new Date().toISOString();
     const runId = createRunId();
 
     const finding = {
       id: runId, runId, timestamp,
       findingId: `finding-${timestamp.slice(0, 10)}-${runId.slice(-6)}`,
-      caseFileId: caseIdRef.current,
+      caseFileId: caseId,
       analyst: analyst || 'unassigned',
+      systemUnderTest,
+      promptHash,
+      selectedControlIds,
       assessmentProfile: ASSURANCE_PROFILE.id,
       assessmentProfileLabel: ASSURANCE_PROFILE.label,
       assessmentProfileScope: ASSURANCE_PROFILE.scope_note,
@@ -321,6 +401,8 @@ export default function App() {
       reviewerDecision: disposition,
       reviewerNotes: '',
       reviewerReviewedAt: new Date().toISOString(),
+      controlGapStatement: gapStatement,
+      effectivenessAssessment,
       evaluationDisagreement: evalSummary.disagreement,
       evaluationNote: evalSummary.note,
       heuristicVerdict: evalResult.verdict,
@@ -332,7 +414,7 @@ export default function App() {
       judgeReason: judgeResult?.text || null,
       responseExcerpt: response.slice(0, 500) + (response.length > 500 ? '…' : ''),
       evidenceExcerpt: response.slice(0, 500) + (response.length > 500 ? '…' : ''),
-      mappedControls: mapping.mapped_controls,
+      mappedControls: selectedControlIds.length ? selectedControlIds : mapping.mapped_controls,
       nistAiRmf: mapping.nist_ai_rmf,
       euAiActRelevance: mapping.eu_ai_act_relevance,
       euAiActScope: mapping.eu_ai_act_scope,
@@ -369,10 +451,15 @@ export default function App() {
   const exportReport = () => {
     downloadMarkdown(`elicit-assessment-report-${new Date().toISOString().slice(0, 10)}.md`, generateAssessmentReport(findings));
   };
+  const exportAuditBrief = () => {
+    downloadHtml(`elicit-audit-brief-${new Date().toISOString().slice(0, 10)}.html`, generateAuditBriefHtml(findings, { assuranceProfile: ASSURANCE_PROFILE.label }));
+  };
   const updateFinding = (id, patch) => setFindings(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
 
   const newCase = () => {
-    caseIdRef.current = `AI-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    setCaseId(`AI-${Date.now().toString(36).toUpperCase().slice(-6)}`);
+    setSystemUnderTest('');
+    setSelectedControlIds(['LLM-SEC-001']);
     setProbeIndex(0);
     resetProbeState();
     setStage(STAGE.CASE);
@@ -401,7 +488,7 @@ export default function App() {
       {stage !== STAGE.HOME && stage !== STAGE.CASE && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.text3 }}>
           <span style={{ color: C.border }}>│</span>
-          <span style={{ color: C.amber, letterSpacing: 1 }}>{caseIdRef.current}</span>
+          <span style={{ color: C.amber, letterSpacing: 1 }}>{caseId}</span>
           {loadedModel && <span>· {loadedModel.name}</span>}
         </div>
       )}
@@ -414,7 +501,7 @@ export default function App() {
         )}
         {findings.length > 0 && stage !== STAGE.REPORT && (
           <button onClick={() => setStage(STAGE.REPORT)} style={btn(C, 'ghost')}>
-            <FileText size={12} /> REPORT ({findings.length})
+            <FileText size={12} /> VIEW REPORT ({findings.length} FINDING{findings.length === 1 ? '' : 'S'})
           </button>
         )}
         {stage !== STAGE.HOME && stage !== STAGE.CASE && (
@@ -430,16 +517,16 @@ export default function App() {
   const stageRail = stage !== STAGE.HOME && stage !== STAGE.CASE && (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.7)', flexShrink: 0, overflowX: 'auto' }}>
       {[
-        ['Briefing', stage === STAGE.LOADING],
-        [`Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE],
-        ['Triage', stage === STAGE.TRIAGE],
-        ['Report', stage === STAGE.REPORT],
-      ].map(([label, active], i) => (
-        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+        ['Briefing', stage === STAGE.LOADING, () => setStage(STAGE.CASE), true],
+        [`Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE, () => setStage(STAGE.PROBE), true],
+        ['Triage', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response)],
+        ['Report', stage === STAGE.REPORT, () => setStage(STAGE.REPORT), true],
+      ].map(([label, active, onClick, enabled], i) => (
+        <button key={label} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
           {i > 0 && <ChevronRight size={11} color={C.border} style={{ margin: '0 9px' }} />}
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: active ? C.amber : C.borderHi, boxShadow: active ? `0 0 8px ${C.amber}99` : 'none' }} />
           <span style={{ fontSize: 11, letterSpacing: 1, fontWeight: active ? 800 : 500, color: active ? C.amber : C.text3, textTransform: 'uppercase' }}>{label}</span>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -453,6 +540,23 @@ export default function App() {
       <GlobalStyle C={C} />
       {headerBar}
       {stageRail}
+      {stage !== STAGE.HOME && stage !== STAGE.CASE && (
+        <SessionContextBar
+          C={C}
+          stage={stage}
+          model={loadedModel || selectedVictimModel}
+          caseId={caseId}
+          controlIds={selectedControlIds}
+          probeIndex={probeIndex}
+          total={clusterPayloads.length}
+          findingsCount={currentCaseFindings.length}
+          lastSavedAt={lastSavedAt}
+          probes={clusterPayloads}
+          outcomes={progressOutcomes}
+          activeProbeId={probe?.id}
+          onSelect={(payloadId) => selectProbe(clusterId, payloadId)}
+        />
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {stage === STAGE.HOME && (
@@ -460,7 +564,9 @@ export default function App() {
             C={C}
             findings={findings}
             clusters={CLUSTERS}
+            activeCase={{ caseId, probeIndex, total: clusterPayloads.length, findingsCount: currentCaseFindings.length }}
             onEnter={newCase}
+            onResume={() => setStage(modelStatus === 'ready' ? STAGE.PROBE : STAGE.CASE)}
             onReport={() => setStage(STAGE.REPORT)}
           />
         )}
@@ -469,7 +575,13 @@ export default function App() {
           <CaseSetup
             C={C}
             analyst={analyst} setAnalyst={setAnalyst}
-            caseId={caseIdRef.current}
+            caseId={caseId}
+            setCaseId={setCaseId}
+            systemUnderTest={systemUnderTest}
+            setSystemUnderTest={setSystemUnderTest}
+            promptHash={promptHash}
+            selectedControlIds={selectedControlIds}
+            setSelectedControlIds={setSelectedControlIds}
             victimModelId={victimModelId} setVictimModelId={setVictimModelId}
             victimModels={VICTIM_MODELS}
             presetId={presetId} setPresetId={setPresetId}
@@ -540,14 +652,18 @@ export default function App() {
               loadProgress={loadProgress}
               loggedFlash={loggedFlash}
               isLast={isLastProbe}
-              onLog={logFinding}
-              onRetry={retryProbe}
-              onStay={() => setLoggedFlash(null)}
-              onNextProbe={goToNextProbe}
-              onChooseProbe={() => setLoggedFlash(null)}
-              onReport={() => { setLoggedFlash(null); setStage(STAGE.REPORT); }}
-              summarize={summarizeEvaluation}
-            />
+            onLog={logFinding}
+            onRetry={retryProbe}
+            onStay={() => setLoggedFlash(null)}
+            onNextProbe={goToNextProbe}
+            onChooseProbe={() => setLoggedFlash(null)}
+            onReport={() => { setLoggedFlash(null); setStage(STAGE.REPORT); }}
+            controlGapStatement={controlGapStatement}
+            setControlGapStatement={setControlGapStatement}
+            effectivenessAssessment={effectivenessAssessment}
+            setEffectivenessAssessment={setEffectivenessAssessment}
+            summarize={summarizeEvaluation}
+          />
           </div>
         )}
 
@@ -557,11 +673,13 @@ export default function App() {
             findings={findings}
             exportFindings={exportFindings}
             exportReport={exportReport}
+            exportAuditBrief={exportAuditBrief}
             clearFindings={() => { if (confirm('Clear all findings?')) setFindings([]); }}
           >
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <button onClick={newCase} style={btn(C, 'primary')}><FolderOpen size={12} /> START NEW CASE</button>
               <button onClick={goHome} style={btn(C, 'ghost')}>HOME DOSSIER</button>
+              <button onClick={() => setAuditorView(v => !v)} style={btn(C, auditorView ? 'primary' : 'ghost')}>{auditorView ? 'AUDITOR VIEW' : 'ANALYST VIEW'}</button>
               {clusterPayloads.length > 0 && (
                 <button onClick={() => { setProbeIndex(0); resetProbeState(); setStage(STAGE.PROBE); }} style={btn(C, 'ghost')}>
                   <RotateCcw size={12} /> RE-RUN THIS CLUSTER
@@ -575,6 +693,7 @@ export default function App() {
             ) : (
               findings.map(f => (
                 <FindingCard key={f.id} C={C} finding={f}
+                  auditorView={auditorView}
                   onUpdate={(patch) => updateFinding(f.id, patch)}
                   onDelete={() => setFindings(p => p.filter(x => x.id !== f.id))}
                 />
@@ -628,14 +747,24 @@ function CaseSetup({
   C, analyst, setAnalyst, caseId, victimModelId, setVictimModelId, victimModels,
   presetId, setPresetId, victimPrompt, setVictimPrompt, clusterId, setClusterId, clusters,
   judgeMode, setJudgeMode, judgeModelId, setJudgeModelId, judgeModels, onOpen, modelStatus, findingsCount, onReport,
+  setCaseId, systemUnderTest, setSystemUnderTest, promptHash, selectedControlIds, setSelectedControlIds,
 }) {
   const model = victimModels.find(m => m.id === victimModelId);
-  const ready = analyst.trim() && clusterId && victimPrompt.trim();
+  const ready = analyst.trim() && caseId.trim() && systemUnderTest.trim() && clusterId && victimPrompt.trim() && selectedControlIds.length > 0;
+  const controlOptions = Object.values(CONTROL_SET);
+  const modelGroups = [
+    ['LIGHTWEIGHT', 'Start here', victimModels.filter(m => m.id.includes('TinyLlama'))],
+    ['MID-RANGE', 'Balanced local testing', victimModels.filter(m => ['gemma-2-2b', 'Phi-3.5', 'Llama-3.2-3B'].some(id => m.id.includes(id)))],
+    ['HEAVY', 'Higher capability, more VRAM', victimModels.filter(m => ['Llama-3.1-8B', 'Mistral-7B', 'gemma-2-9b', 'Qwen2.5-7B'].some(id => m.id.includes(id)))],
+  ];
+  const toggleControl = (id) => {
+    setSelectedControlIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  };
 
-  const sectionLabel = (n, t) => (
+  const sectionLabel = (n, t, complete) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 12 }}>
-      <span style={{ fontSize: 11, color: C.amber, fontWeight: 800, letterSpacing: 1 }}>{n}</span>
-      <span style={{ fontSize: 11, color: C.text2, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase' }}>{t}</span>
+      <span style={{ fontSize: 11, color: complete ? C.teal : C.amber, fontWeight: 800, letterSpacing: 1 }}>{complete ? '✓' : n}</span>
+      <span style={{ fontSize: 11, color: complete ? C.text1 : C.text2, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase' }}>{t}</span>
     </div>
   );
 
@@ -644,37 +773,51 @@ function CaseSetup({
       <div style={{ marginBottom: 36 }}>
         <div style={{ fontSize: 10, color: C.text3, letterSpacing: 2.4, textTransform: 'uppercase' }}>Open investigation</div>
         <div style={{ fontSize: 26, color: C.text1, fontWeight: 800, marginTop: 8, letterSpacing: .5 }}>Case File</div>
-        <div style={{ fontSize: 12, color: C.amber, marginTop: 6, letterSpacing: 1 }}>{caseId}</div>
+        <div style={{ fontSize: 12, color: C.amber, marginTop: 6, letterSpacing: 1 }}>Audit evidence framing before probing</div>
       </div>
 
       {/* 1 · Analyst */}
       <div style={{ marginBottom: 30 }}>
-        {sectionLabel('01', 'Analyst')}
+        {sectionLabel('01', 'Analyst', Boolean(analyst.trim()))}
         <input value={analyst} onChange={e => setAnalyst(e.target.value)} placeholder="Your analyst ID or initials"
           style={inputStyle(C)} />
       </div>
 
-      {/* 2 · Target model */}
       <div style={{ marginBottom: 30 }}>
-        {sectionLabel('02', 'Target model')}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
-          {victimModels.map(m => {
-            const active = victimModelId === m.id;
-            return (
-              <button key={m.id} className="es-pick" onClick={() => setVictimModelId(m.id)} style={{
-                textAlign: 'left', padding: '11px 13px', borderRadius: 4, cursor: 'pointer',
-                background: active ? C.amberBg : C.surface,
-                border: `1px solid ${active ? C.amber : C.border}`,
-                borderLeft: `3px solid ${active ? C.amber : 'transparent'}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, color: C.text1, fontWeight: 700 }}>{m.name}</span>
-                  {m.quickStart && <span style={{ fontSize: 8, color: C.teal, border: `1px solid ${C.teal}66`, padding: '1px 4px', borderRadius: 2, letterSpacing: .5 }}>START HERE</span>}
+        {sectionLabel('02', 'Case ID', Boolean(caseId.trim()))}
+        <input value={caseId} onChange={e => setCaseId(e.target.value)} placeholder="AI-GZ9G3B" style={inputStyle(C)} />
+      </div>
+
+      <div style={{ marginBottom: 30 }}>
+        {sectionLabel('03', 'System under test', Boolean(systemUnderTest.trim()))}
+        <input value={systemUnderTest} onChange={e => setSystemUnderTest(e.target.value)} placeholder="Name, version, environment (dev/staging/prod)" style={inputStyle(C)} />
+      </div>
+
+      <div style={{ marginBottom: 30 }}>
+        {sectionLabel('04', 'Target model', Boolean(victimModelId))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
+          {modelGroups.map(([label, detail, models]) => (
+            <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: 10 }}>
+              <button onClick={() => setVictimModelId(models[0]?.id || victimModelId)} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: label === 'LIGHTWEIGHT' ? C.teal : C.amber, fontWeight: 900, letterSpacing: 1 }}>{label}</span>
+                  {label === 'LIGHTWEIGHT' && <span style={{ fontSize: 9, color: C.teal }}>START HERE</span>}
                 </div>
-                <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{m.size} · needs {m.vram} VRAM</div>
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{detail}</div>
               </button>
-            );
-          })}
+              <div style={{ display: 'grid', gap: 5, marginTop: 9 }}>
+                {models.map(m => {
+                  const active = victimModelId === m.id;
+                  return (
+                    <button key={m.id} onClick={() => setVictimModelId(m.id)} style={{ textAlign: 'left', padding: '7px 8px', borderRadius: 3, cursor: 'pointer', background: active ? C.amberBg : C.bg, border: `1px solid ${active ? C.amber : C.border}` }}>
+                      <div style={{ fontSize: 12, color: active ? C.text1 : C.text2, fontWeight: active ? 800 : 600 }}>{m.name}</div>
+                      <div style={{ fontSize: 10, color: C.text3 }}>VRAM {m.vram} · {m.size}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
         <div style={{ marginTop: 8, fontSize: 11, color: C.text3, display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertTriangle size={12} color={C.amberDim} />
@@ -685,7 +828,7 @@ function CaseSetup({
       {/* 3 · Target prompt */}
       <div style={{ marginBottom: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {sectionLabel('03', 'Target system prompt')}
+          {sectionLabel('05', 'Target system prompt', Boolean(victimPrompt.trim()))}
           <select value={presetId} onChange={e => { const p = PRESETS.find(x => x.id === e.target.value); if (p) { setPresetId(p.id); setVictimPrompt(p.prompt); } }}
             style={{ ...inputStyle(C), width: 'auto', padding: '4px 8px', fontSize: 12, marginBottom: 12 }}>
             {PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -694,11 +837,28 @@ function CaseSetup({
         <textarea value={victimPrompt} onChange={e => setVictimPrompt(e.target.value)} rows={4}
           placeholder="The system prompt the target model is running with…"
           style={{ ...inputStyle(C), resize: 'vertical', lineHeight: 1.6 }} />
+        <div style={{ fontSize: 11, color: C.text3, marginTop: 6 }}>SHA-256 {promptHash ? promptHash.slice(0, 20) : 'calculating'}...</div>
+      </div>
+
+      <div style={{ marginBottom: 30 }}>
+        {sectionLabel('06', 'Control under test', selectedControlIds.length > 0)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 6 }}>
+          {controlOptions.map(control => {
+            const active = selectedControlIds.includes(control.id);
+            return (
+              <button key={control.id} onClick={() => toggleControl(control.id)} style={{ textAlign: 'left', background: active ? C.amberBg : C.surface, border: `1px solid ${active ? C.amber : C.border}`, borderLeft: `3px solid ${active ? C.amber : C.border}`, borderRadius: 3, padding: '8px 9px', cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, color: active ? C.amber : C.text3, fontWeight: 800 }}>{control.id}</div>
+                <div style={{ fontSize: 12, color: C.text1, fontWeight: 700, marginTop: 2 }}>{control.name}</div>
+                <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.35, marginTop: 4 }}>{control.objective}</div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 4 · Technique cluster */}
       <div style={{ marginBottom: 30 }}>
-        {sectionLabel('04', 'Investigation focus')}
+        {sectionLabel('07', 'Investigation focus', Boolean(clusterId))}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
           {clusters.map(cl => {
             const active = clusterId === cl.id;
@@ -724,7 +884,7 @@ function CaseSetup({
 
       {/* 5 · Judge (optional, collapsed by default) */}
       <div style={{ marginBottom: 36 }}>
-        {sectionLabel('05', 'Second-opinion judge')}
+        {sectionLabel('08', 'Second-opinion judge', true)}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={() => setJudgeMode(p => !p)} style={{
             display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 4, cursor: 'pointer',
@@ -776,6 +936,47 @@ function inputStyle(C) {
     width: '100%', background: C.surface, border: `1px solid ${C.border}`, color: C.text1,
     fontSize: 14, padding: '11px 13px', borderRadius: 4, fontFamily: C.mono,
   };
+}
+
+function SessionContextBar({ C, stage, model, caseId, controlIds, probeIndex, total, findingsCount, lastSavedAt, probes, outcomes, activeProbeId, onSelect }) {
+  const savedLabel = lastSavedAt ? new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'pending';
+  const colorFor = (payload) => {
+    const outcome = outcomes[payload.id];
+    if (payload.id === activeProbeId && !outcome) return C.text1;
+    if (outcome === 'SUCCESS') return C.amber;
+    if (outcome === 'PARTIAL') return C.amberDim;
+    if (outcome === 'FAILURE' || outcome === 'FAILED') return C.teal;
+    if (outcome === 'REVIEW') return C.blue;
+    return C.borderHi;
+  };
+  return (
+    <div style={{ borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.88)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 20px', fontSize: 11, color: C.text3, overflowX: 'auto' }}>
+        <span style={{ color: C.text2 }}>HOME &gt; {caseId} &gt; {stage.toUpperCase()}</span>
+        <span>[MODEL] {model?.name || 'not loaded'}</span>
+        <span>[CASE] {caseId}</span>
+        <span>[CONTROL] {controlIds.join(', ') || 'not selected'}</span>
+        <span>[PROBE] {Math.min(probeIndex + 1, total || 1)}/{total || 0}</span>
+        <span>[FINDINGS] {findingsCount}</span>
+        <span style={{ marginLeft: 'auto', color: C.teal }}>Last saved {savedLabel}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(probes.length, 1)}, minmax(18px, 1fr))`, gap: 3, padding: '0 20px 8px' }}>
+        {probes.map(payload => {
+          const color = colorFor(payload);
+          return (
+            <button key={payload.id} onClick={() => onSelect(payload.id)} title={`${payload.name} · ${outcomes[payload.id] || 'pending'}`} style={{
+              height: 8,
+              borderRadius: 2,
+              border: payload.id === activeProbeId ? `1px solid ${C.text1}` : `1px solid ${color}66`,
+              background: color,
+              opacity: outcomes[payload.id] || payload.id === activeProbeId ? 1 : .45,
+              cursor: 'pointer',
+            }} />
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ═══ STAGE 2 · Loading (dead-time = briefing) ═════════════════════════════════
@@ -901,6 +1102,10 @@ function TriageStage({
   onNextProbe,
   onChooseProbe,
   onReport,
+  controlGapStatement,
+  setControlGapStatement,
+  effectivenessAssessment,
+  setEffectivenessAssessment,
   summarize,
 }) {
   const color = C[cluster?.colorKey] || C.amber;
@@ -990,6 +1195,38 @@ function TriageStage({
         payload={probe}
         compact
       />
+
+      <div style={{ background: C.surface, border: `1px solid ${C.amber}44`, borderLeft: `3px solid ${C.amber}`, borderRadius: 5, padding: '12px 14px' }}>
+        <SectionTitle C={C}>Control gap statement</SectionTitle>
+        <textarea
+          value={controlGapStatement}
+          onChange={e => setControlGapStatement(e.target.value)}
+          rows={4}
+          style={{ width: '100%', background: C.bg, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }}
+        />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          {[
+            ['ABSENT', 'Absent', C.red],
+            ['INEFFECTIVE', 'Ineffective', C.amber],
+            ['PARTIALLY_EFFECTIVE', 'Partial', C.amberDim],
+            ['EFFECTIVE', 'Effective', C.teal],
+          ].map(([value, label, color]) => (
+            <button key={value} onClick={() => setEffectivenessAssessment(value)} style={{
+              background: effectivenessAssessment === value ? `${color}22` : C.bg,
+              border: `1px solid ${effectivenessAssessment === value ? color : C.border}`,
+              color,
+              borderRadius: 3,
+              padding: '6px 9px',
+              cursor: 'pointer',
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: 1,
+            }}>
+              {label.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Disposition — the one decision */}
       <div>

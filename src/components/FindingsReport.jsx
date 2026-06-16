@@ -6,6 +6,7 @@ export default function FindingsReport({
   findings,
   exportFindings,
   exportReport,
+  exportAuditBrief,
   clearFindings,
   children,
 }) {
@@ -36,6 +37,13 @@ export default function FindingsReport({
               fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
             }}>
               <FileText size={11} /> EXPORT REPORT
+            </button>
+            <button onClick={exportAuditBrief} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+              background: C.amberBg, border: `1px solid ${C.amber}70`, color: C.amber,
+              fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
+            }}>
+              <FileText size={11} /> AUDIT BRIEF HTML
             </button>
             <button onClick={clearFindings} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
