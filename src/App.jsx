@@ -103,6 +103,7 @@ export default function App() {
 
   // Attack
   const [techFilter,     setTechFilter]     = useState('ALL');
+  const [difficultyFilter,setDifficultyFilter]=useState('ALL');
   const [searchQ,        setSearchQ]        = useState('');
   const [selectedPayload,setSelectedPayload]= useState(PAYLOADS[0]);
   const [customPayload,  setCustomPayload]  = useState('');
@@ -372,6 +373,7 @@ export default function App() {
   // ── Filtered payloads ──
   const filteredPayloads = PAYLOADS.filter(p => {
     if (techFilter !== 'ALL' && p.technique !== techFilter) return false;
+    if (difficultyFilter !== 'ALL' && p.difficulty !== difficultyFilter) return false;
     if (searchQ) {
       const q = searchQ.toLowerCase();
       const technique = TECHNIQUES[p.technique] || {};
@@ -406,6 +408,13 @@ export default function App() {
   const modelReady = modelStatus === 'ready' && loadedModelId;
   const selectedCaseMapping = selectedPayload ? buildCaseMapping(selectedPayload.technique, selectedPayload) : null;
   const finalEvalSummary = evalResult ? summarizeEvaluation(evalResult, judgeResult) : null;
+  const techniqueOptions = Object.values(TECHNIQUES)
+    .map(t => ({ ...t, count: PAYLOADS.filter(p => p.technique === t.id).length }))
+    .filter(t => t.count > 0);
+  const difficultyOptions = ['low', 'medium', 'high'].map(level => ({
+    level,
+    count: PAYLOADS.filter(p => p.difficulty === level && (techFilter === 'ALL' || p.technique === techFilter)).length,
+  }));
   const workflowSteps = [
     { id: 'target', label: '1 Choose target', hint: modelReady ? 'Change model or prompt' : 'Load a local model', done: Boolean(modelReady), active: !modelReady },
     { id: 'case', label: '2 Select test case', hint: selectedPayload ? selectedPayload.name : 'Pick a payload', done: Boolean(selectedPayload || useCustom), active: Boolean(modelReady && !evalResult) },
@@ -413,6 +422,48 @@ export default function App() {
   ];
   const nextStepId = !modelReady ? 'target' : (!selectedPayload && !useCustom) ? 'case' : !evalResult ? 'run' : 'review';
   const guideStep = focusStep || nextStepId;
+  const currentCaseName = useCustom ? 'Custom payload' : selectedPayload?.name || 'No case selected';
+  const runDisabled = modelStatus !== 'ready' || judging || (!useCustom && !selectedPayload);
+  const saveDisabled = judging || (judgeMode && !judgeResult);
+  const nextAction = running
+    ? {
+        label: 'Evaluation running',
+        detail: 'The model response is streaming below.',
+        button: 'STOP RUN',
+        disabled: false,
+        action: stopAttack,
+      }
+    : nextStepId === 'target'
+      ? {
+          label: 'Next up: load the target model',
+          detail: `Downloads ${selectedVictimModel?.name || 'the selected model'} into your browser cache, then runs locally with WebGPU.`,
+          button: modelStatus === 'loading' ? 'LOADING...' : 'LOAD MODEL',
+          disabled: modelStatus === 'loading',
+          action: () => loadModel(victimModelId),
+        }
+      : nextStepId === 'case'
+        ? {
+            label: 'Next up: select a test case',
+            detail: 'Pick a payload from the library or open Advanced for custom cases and filters.',
+            button: 'SHOW TEST CASES',
+            disabled: false,
+            action: () => focusWorkflowStep('case'),
+          }
+        : nextStepId === 'run'
+          ? {
+              label: 'Next up: run the evaluation',
+              detail: `${currentCaseName} against ${loadedModel?.name || loadedModelId}. Judge review is ${judgeMode ? 'on' : 'off'}.`,
+              button: 'RUN EVALUATION',
+              disabled: runDisabled,
+              action: runAttack,
+            }
+          : {
+              label: 'Next up: review the result',
+              detail: finalEvalSummary ? `${finalEvalSummary.finalVerdict} verdict. Save it if this should enter the findings queue.` : 'Review the model response and verdict summary.',
+              button: 'SAVE FINDING',
+              disabled: saveDisabled,
+              action: addFinding,
+            };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -545,6 +596,20 @@ export default function App() {
           }
         }
         @media (max-width: 760px) {
+          .next-action-bar {
+            align-items: stretch !important;
+            flex-direction: column !important;
+            padding: 12px !important;
+          }
+          .next-action-controls {
+            align-items: stretch !important;
+            flex-direction: column !important;
+          }
+          .next-action-controls > button,
+          .next-action-controls > select {
+            width: 100% !important;
+            justify-content: center;
+          }
           .workflow-strip {
             align-items: stretch !important;
             overflow-x: auto;
@@ -557,6 +622,9 @@ export default function App() {
           }
           .workflow-summary {
             display: none !important;
+          }
+          .case-filter-grid {
+            grid-template-columns: 1fr !important;
           }
           .lab-shell {
             flex-direction: column !important;
@@ -597,10 +665,6 @@ export default function App() {
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes guidePulse {
-          0%, 100% { filter: drop-shadow(0 0 0 rgba(200,120,68,0)); }
-          50% { filter: drop-shadow(0 0 8px rgba(200,120,68,.34)); }
-        }
         @keyframes scan {
           0% { transform: translateY(-100%); }
           100% { transform: translateY(100vh); }
@@ -644,8 +708,7 @@ export default function App() {
                   border: `1px solid ${guideStep === 'target' ? C.amber : C.border}`,
                   color: guideStep === 'target' ? C.amber : C.text3,
                   cursor: 'pointer', borderRadius: 2,
-                  boxShadow: nextStepId === 'target' ? '0 0 18px rgba(200,120,68,.18)' : 'none',
-                  animation: nextStepId === 'target' ? 'guidePulse 2.4s ease-in-out infinite' : 'none',
+                  boxShadow: guideStep === 'target' ? '0 0 0 1px rgba(200,120,68,.18)' : 'none',
                 }}
               >
                 CHANGE
@@ -680,8 +743,7 @@ export default function App() {
                   color: modelStatus === 'ready' && loadedModelId === victimModelId ? C.amber : C.text2,
                   cursor: 'pointer', borderRadius: 2,
                   opacity: modelStatus === 'loading' ? 0.5 : 1,
-                  boxShadow: nextStepId === 'target' ? '0 0 18px rgba(200,120,68,.18)' : 'none',
-                  animation: nextStepId === 'target' ? 'guidePulse 2.4s ease-in-out infinite' : 'none',
+                  boxShadow: guideStep === 'target' ? '0 0 0 1px rgba(200,120,68,.18)' : 'none',
                 }}
               >
                 {modelStatus === 'loading' ? 'LOADING…' : modelStatus === 'ready' && loadedModelId === victimModelId ? '● LOADED' : 'LOAD →'}
@@ -753,6 +815,86 @@ export default function App() {
       )}
 
       {activeTab === 'lab' && (
+        <div className="next-action-bar" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '12px 20px',
+          borderBottom: `1px solid ${C.borderHi}`,
+          background: 'linear-gradient(90deg, rgba(200,120,68,.12), rgba(13,17,29,.92))',
+          flexShrink: 0,
+        }}>
+          <div className="next-action-copy" style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, color: C.text1, fontWeight: 800, letterSpacing: .4 }}>
+              {nextAction.label}
+            </div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.45, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nextAction.detail}
+            </div>
+          </div>
+          <div className="next-action-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => setJudgeMode(p => !p)}
+              style={{
+                padding: '8px 11px',
+                background: judgeMode ? C.redBg : 'rgba(220,72,56,.055)',
+                border: `1px solid ${judgeMode ? C.red : C.redDim}`,
+                color: judgeMode ? C.red : C.text2,
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: 1,
+                cursor: 'pointer',
+                borderRadius: 2,
+              }}
+            >
+              JUDGE REVIEW {judgeMode ? 'ON' : 'OFF'}
+            </button>
+            {judgeMode && (
+              <select
+                value={judgeModelId}
+                onChange={e => setJudgeModelId(e.target.value)}
+                style={{
+                  background: C.surface,
+                  border: `1px solid ${C.redDim}`,
+                  color: C.text1,
+                  fontSize: 13,
+                  padding: '7px 8px',
+                  borderRadius: 2,
+                }}
+              >
+                {JUDGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            )}
+            <button
+              onClick={nextAction.action}
+              disabled={nextAction.disabled}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                minWidth: 146,
+                padding: '8px 14px',
+                background: nextStepId === 'review' ? C.amberBg : C.amber,
+                border: `1px solid ${nextStepId === 'review' ? C.amber : C.amber}`,
+                color: nextStepId === 'review' ? C.amber : C.ink,
+                fontSize: 13,
+                fontWeight: 900,
+                letterSpacing: 1,
+                cursor: nextAction.disabled ? 'not-allowed' : 'pointer',
+                opacity: nextAction.disabled ? 0.45 : 1,
+                borderRadius: 2,
+                boxShadow: nextAction.disabled ? 'none' : '0 0 24px rgba(200,120,68,.18)',
+              }}
+            >
+              {running ? <Square size={12} /> : nextStepId === 'review' ? <Plus size={12} /> : <Play size={12} />}
+              {nextAction.button}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'lab' && (
         <div className="workflow-strip" style={{
           display: 'flex',
           alignItems: 'center',
@@ -777,8 +919,7 @@ export default function App() {
               fontWeight: 700,
               letterSpacing: .7,
               cursor: 'pointer',
-              boxShadow: nextStepId === step.id ? '0 0 18px rgba(200,120,68,.16)' : focusStep === step.id ? '0 0 0 1px rgba(200,120,68,.24)' : 'none',
-              animation: nextStepId === step.id ? 'guidePulse 2.4s ease-in-out infinite' : 'none',
+              boxShadow: focusStep === step.id ? '0 0 0 1px rgba(200,120,68,.24)' : 'none',
             }}>
               <span style={{
                 width: 7,
@@ -816,7 +957,7 @@ export default function App() {
               flexDirection: 'column',
               overflow: 'hidden',
               background: guideStep === 'case' ? 'rgba(200,120,68,.045)' : 'rgba(10,12,22,.88)',
-              boxShadow: nextStepId === 'case' ? '0 0 22px rgba(200,120,68,.12)' : guideStep === 'case' ? 'inset -1px 0 0 rgba(200,120,68,.34)' : 'none',
+              boxShadow: guideStep === 'case' ? 'inset -1px 0 0 rgba(200,120,68,.34)' : 'none',
             }}>
 
             {/* Victim config */}
@@ -844,36 +985,56 @@ export default function App() {
               />
             </div>
 
-            {/* Technique filter */}
-            {advancedMode && (
-            <div style={{ padding: '8px 14px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                <button className="pill-btn" onClick={() => setTechFilter('ALL')} style={{
-                  padding: '3px 8px', fontSize: 13, fontWeight: 700, letterSpacing: .5,
-                  background: techFilter === 'ALL' ? C.hover : 'transparent',
-                  border: `1px solid ${techFilter === 'ALL' ? C.text2 : C.border}`,
-                  color: techFilter === 'ALL' ? C.text1 : C.text2, cursor: 'pointer', borderRadius: 2,
-                }}>ALL</button>
-                {Object.values(TECHNIQUES).map(t => (
-                  <button key={t.id} className="pill-btn" onClick={() => setTechFilter(t.id)} style={{
-                    padding: '3px 8px', fontSize: 13, fontWeight: 700, letterSpacing: .5,
-                    background: techFilter === t.id ? C.hover : 'transparent',
-                    border: `1px solid ${techFilter === t.id ? C.text2 : C.border}`,
-                    color: techFilter === t.id ? C.text1 : C.text2, cursor: 'pointer', borderRadius: 2,
-                  }}>{t.id}</button>
-                ))}
+            {/* Case classification controls */}
+            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1.5, fontWeight: 700 }}>TEST CASES</span>
+                <span style={{ fontSize: 12, color: C.text3 }}>{filteredPayloads.length} shown</span>
               </div>
-            </div>
-            )}
-
-            {/* Search */}
-            <div style={{ padding: '6px 14px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Search size={11} color={C.text3} />
-              <input
-                value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                placeholder="search payloads…"
-                style={{ flex: 1, background: 'transparent', border: 'none', color: C.text1, fontSize: 15 }}
-              />
+              <div className="case-filter-grid" style={{ display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 8 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: C.text3, letterSpacing: 1 }}>ATTACK TYPE</span>
+                  <select
+                    value={techFilter}
+                    onChange={e => setTechFilter(e.target.value)}
+                    style={{ width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, padding: '6px 7px', borderRadius: 2 }}
+                  >
+                    <option value="ALL">All attack types ({PAYLOADS.length})</option>
+                    {techniqueOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name.replace('LLM ', '')} · {t.id} ({t.count})</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: C.text3, letterSpacing: 1 }}>DIFFICULTY</span>
+                  <select
+                    value={difficultyFilter}
+                    onChange={e => setDifficultyFilter(e.target.value)}
+                    style={{ width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, padding: '6px 7px', borderRadius: 2 }}
+                  >
+                    <option value="ALL">All levels</option>
+                    {difficultyOptions.map(({ level, count }) => (
+                      <option key={level} value={level}>{level.toUpperCase()} ({count})</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, background: C.bg, border: `1px solid ${C.border}`, padding: '5px 7px', borderRadius: 2 }}>
+                <Search size={11} color={C.text3} />
+                <input
+                  value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                  placeholder="search names, controls, OWASP, ISO, EU Act..."
+                  style={{ flex: 1, background: 'transparent', border: 'none', color: C.text1, fontSize: 13, minWidth: 0 }}
+                />
+              </div>
+              {(techFilter !== 'ALL' || difficultyFilter !== 'ALL' || searchQ) && (
+                <button
+                  onClick={() => { setTechFilter('ALL'); setDifficultyFilter('ALL'); setSearchQ(''); }}
+                  style={{ marginTop: 8, padding: '4px 7px', background: 'transparent', border: `1px solid ${C.border}`, color: C.text3, fontSize: 12, cursor: 'pointer', borderRadius: 2 }}
+                >
+                  CLEAR FILTERS
+                </button>
+              )}
             </div>
 
             {/* Payload list */}
@@ -895,6 +1056,8 @@ export default function App() {
 
               {filteredPayloads.map(p => {
                 const active = !useCustom && selectedPayload?.id === p.id;
+                const technique = TECHNIQUES[p.technique] || {};
+                const mapping = buildCaseMapping(p.technique, p);
                 return (
                   <div
                     key={p.id}
@@ -906,13 +1069,15 @@ export default function App() {
                       borderLeft: active ? `2px solid ${C.amber}` : '2px solid transparent',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, color: C.text2, background: C.hover, padding: '1px 5px', borderRadius: 2, border: `1px solid ${C.border}` }}>
-                        {p.technique}
+                        {technique.name?.replace('LLM ', '') || p.technique}
                       </span>
                       <span style={{ fontSize: 12, color: DIFFICULTY_COLOR[p.difficulty] }}>
                         {p.difficulty.toUpperCase()}
                       </span>
+                      <span style={{ fontSize: 12, color: C.text3 }}>{technique.owasp}</span>
+                      <span style={{ fontSize: 12, color: C.text3 }}>{mapping.mapped_controls?.length || 0} controls</span>
                     </div>
                     <div style={{ fontSize: 15, color: active ? C.text1 : C.text1, fontWeight: active ? 600 : 400, marginBottom: 2 }}>{p.name}</div>
                     <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.4 }}>{p.description}</div>
@@ -938,39 +1103,46 @@ export default function App() {
                     {useCustom ? 'CUSTOM PAYLOAD' : `PAYLOAD: ${selectedPayload?.name || 'none selected'}`}
                   </span>
                   {!useCustom && selectedPayload && (
-                    <span style={{
-                      fontSize: 12, color: C.text2,
-                      background: C.hover,
-                      padding: '1px 6px', borderRadius: 2,
-                      border: `1px solid ${C.border}`,
-                    }}>
-                      {selectedPayload.technique} · {TECHNIQUES[selectedPayload.technique]?.name}
-                    </span>
+                    <>
+                      <span style={{
+                        fontSize: 12, color: C.text2,
+                        background: C.hover,
+                        padding: '1px 6px', borderRadius: 2,
+                        border: `1px solid ${C.border}`,
+                      }}>
+                        {TECHNIQUES[selectedPayload.technique]?.name?.replace('LLM ', '')}
+                      </span>
+                      <span style={{ fontSize: 12, color: C.text3 }}>{TECHNIQUES[selectedPayload.technique]?.owasp}</span>
+                      <span style={{ fontSize: 12, color: DIFFICULTY_COLOR[selectedPayload.difficulty] }}>{selectedPayload.difficulty.toUpperCase()}</span>
+                      {selectedCaseMapping?.mapped_controls?.length ? (
+                        <span style={{ fontSize: 12, color: C.text3 }}>{selectedCaseMapping.mapped_controls.length} controls</span>
+                      ) : null}
+                    </>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {/* Judge mode toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: C.text2 }}>JUDGE</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => setJudgeMode(p => !p)}
                       style={{
-                        width: 32, height: 16, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: judgeMode ? C.amber : C.surface,
-                        position: 'relative', transition: 'background .2s',
+                        padding: '6px 9px',
+                        borderRadius: 2,
+                        border: `1px solid ${judgeMode ? C.red : C.redDim}`,
+                        cursor: 'pointer',
+                        background: judgeMode ? C.redBg : 'transparent',
+                        color: judgeMode ? C.red : C.text2,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: .8,
                       }}
                     >
-                      <div style={{
-                        position: 'absolute', top: 2, left: judgeMode ? 18 : 2,
-                        width: 12, height: 12, borderRadius: '50%',
-                        background: judgeMode ? '#fff' : C.text2,
-                        transition: 'left .2s',
-                      }} />
+                      JUDGE REVIEW {judgeMode ? 'ON' : 'OFF'}
                     </button>
                     {judgeMode && (
                       <select
                         value={judgeModelId} onChange={e => setJudgeModelId(e.target.value)}
-                        style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text1, fontSize: 13, padding: '2px 6px', borderRadius: 2 }}
+                        style={{ background: C.surface, border: `1px solid ${C.redDim}`, color: C.text1, fontSize: 13, padding: '5px 6px', borderRadius: 2 }}
                       >
                         {JUDGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                       </select>
@@ -989,8 +1161,7 @@ export default function App() {
                       cursor: modelStatus !== 'ready' ? 'not-allowed' : 'pointer',
                       opacity: modelStatus !== 'ready' ? 0.4 : 1,
                       borderRadius: 2,
-                      boxShadow: nextStepId === 'run' ? '0 0 20px rgba(200,120,68,.22)' : guideStep === 'run' ? '0 0 0 2px rgba(200,120,68,.24)' : 'none',
-                      animation: nextStepId === 'run' ? 'guidePulse 2.4s ease-in-out infinite' : 'none',
+                      boxShadow: guideStep === 'run' ? '0 0 0 2px rgba(200,120,68,.24)' : 'none',
                     }}
                   >
                     {running ? <><Square size={10} /> STOP</> : <><Play size={10} /> EXECUTE</>}
@@ -1111,8 +1282,7 @@ export default function App() {
                         opacity: judging || (judgeMode && !judgeResult) ? 0.45 : 1,
                         borderRadius: 2, flexShrink: 0,
                         display: 'flex', alignItems: 'center', gap: 6,
-                        boxShadow: nextStepId === 'review' ? '0 0 20px rgba(200,120,68,.22)' : 'none',
-                        animation: nextStepId === 'review' ? 'guidePulse 2.4s ease-in-out infinite' : 'none',
+                        boxShadow: nextStepId === 'review' ? '0 0 0 2px rgba(200,120,68,.20)' : 'none',
                       }}
                     >
                       <Plus size={13} />
