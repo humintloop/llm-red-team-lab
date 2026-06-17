@@ -292,6 +292,8 @@ export default function App() {
   const [batchStatus, setBatchStatus] = useState(null); // { index, total, probeName, response }
   const [batchJudging, setBatchJudging] = useState(false);
   const [batchJudgeStatus, setBatchJudgeStatus] = useState(null); // { index, total, name, judgeText }
+  const [batchFindingIds, setBatchFindingIds] = useState(null); // Set of finding IDs in current batch
+  const [batchViewFinding, setBatchViewFinding] = useState(null); // finding to show in detail overlay
 
   // Execution
   const [running, setRunning] = useState(false);
@@ -302,7 +304,7 @@ export default function App() {
   const [judgeStreamText, setJudgeStreamText] = useState('');
   const [judgeAcknowledged, setJudgeAcknowledged] = useState(false);
   const abortRef = useRef(false);
-  const batchJudgePauseResolverRef = useRef(null);
+  const batchJudgePauseResolverRef = useRef(null); // kept for legacy stop path
   const [loggedFlash, setLoggedFlash] = useState(null);
   const [controlGapStatement, setControlGapStatement] = useState('');
   const [effectivenessAssessment, setEffectivenessAssessment] = useState('');
@@ -713,8 +715,10 @@ export default function App() {
     if (!engineRef.current || modelStatus !== 'ready' || queue.length === 0) return;
     setStage(STAGE.PROBE);
     setBatchRunning(true);
+    setBatchFindingIds(new Set());
     abortRef.current = false;
     const newFindings = [];
+    const batchIds = new Set();
     for (let i = 0; i < queue.length; i++) {
       if (abortRef.current) break;
       const { clusterId: cId, probeId } = queue[i];
@@ -741,6 +745,8 @@ export default function App() {
         const finding = buildFindingObject(p, cl, full, evalR);
         newFindings.push(finding);
         setFindings(prev => [finding, ...prev]);
+        batchIds.add(finding.id);
+        setBatchFindingIds(new Set(batchIds));
       }
     }
     setBatchRunning(false);
@@ -793,15 +799,12 @@ export default function App() {
           else if (/\bSUCCESS\b/.test(upper) && !/UNSUCCESS/.test(upper) && !/NOT\s+(A\s+)?SUCCESS/.test(upper)) verdict = 'SUCCESS';
           else verdict = 'FAILURE';
           updateFinding(f.id, { judgeVerdict: verdict, judgeReason: judgeText, judgeModel: judgeModelId, judgeModelSettings: JUDGE_MODEL_SETTINGS });
-          // Pause so the user can read the verdict before advancing
           setBatchJudgeStatus({
             index: i, total: newFindings.length, name: f.payloadName,
-            judgeText, judgeVerdict: verdict, heuristicVerdict: normalizeVerdict(f.heuristicVerdict), heuristicReason: f.evalReason || '',
-            isLoadingModel: false, paused: true,
+            judgeText, judgeVerdict: verdict,
+            isLoadingModel: false,
             probeResponse: f.responseFull || f.response || '', probePayload: f.payload || '',
           });
-          await new Promise(resolve => { batchJudgePauseResolverRef.current = resolve; });
-          if (abortRef.current) break;
         }
       }
     } catch (_) {}
@@ -1063,9 +1066,9 @@ export default function App() {
               />
             )}
             {batchJudging && batchJudgeStatus ? (
-              <BatchJudgeRunner C={C} status={batchJudgeStatus} onStop={() => { abortRef.current = true; continueBatchJudge(); }} onContinue={continueBatchJudge} />
+              <BatchJudgeRunner C={C} status={batchJudgeStatus} findings={findings} batchFindingIds={batchFindingIds} onViewFinding={setBatchViewFinding} onStop={() => { abortRef.current = true; }} />
             ) : batchRunning && batchStatus ? (
-              <BatchRunner C={C} status={batchStatus} onStop={() => { abortRef.current = true; }} />
+              <BatchRunner C={C} status={batchStatus} findings={findings} batchFindingIds={batchFindingIds} onViewFinding={setBatchViewFinding} onStop={() => { abortRef.current = true; }} />
             ) : (
               <ProbeStage
                 C={C}
@@ -1080,6 +1083,10 @@ export default function App() {
               />
             )}
           </div>
+        )}
+
+        {batchViewFinding && (
+          <BatchFindingDetail C={C} finding={batchViewFinding} onClose={() => setBatchViewFinding(null)} />
         )}
 
         {stage === STAGE.TRIAGE && (!response || !evalResult) && (
@@ -1583,19 +1590,112 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
   );
 }
 
-function BatchJudgeRunner({ C, status, onStop, onContinue }) {
-  const { index, total, name, judgeText, judgeVerdict, heuristicVerdict, heuristicReason, isLoadingModel, paused, probeResponse, probePayload } = status;
+function BatchFindingsList({ C, findings, total, onView, judging, currentIndex }) {
+  if (!findings || findings.length === 0) return null;
+  const pendingCount = total - findings.length;
+  return (
+    <div style={{ margin: '0 28px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ fontSize: 11, color: judging ? C.blue : C.text3, letterSpacing: 1.4, fontWeight: 900, textTransform: 'uppercase', marginBottom: 4 }}>
+        {judging ? 'JUDGE RESULTS' : 'COMPLETED PROBES'} · {findings.length}{pendingCount > 0 ? ` / ${total}` : ''}
+      </div>
+      {findings.map((f, i) => {
+        const verdict = normalizeVerdict(f.judgeVerdict || f.heuristicVerdict || f.verdict);
+        const color = getVerdictColor(verdict, C);
+        const isActive = judging && (total - findings.length + i === currentIndex);
+        return (
+          <button key={f.id} onClick={() => onView(f)} style={{
+            display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+            padding: '9px 12px', borderRadius: 4, cursor: 'pointer', width: '100%',
+            background: isActive ? `${C.blue}12` : C.panel,
+            border: `1px solid ${isActive ? C.blue + '55' : color + '33'}`,
+            borderLeft: `3px solid ${color}`,
+            transition: 'border-color .15s, background .15s',
+          }}>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: color, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {f.payloadName || f.caseId}
+              </div>
+            </div>
+            <span style={{ fontSize: 11, color, fontWeight: 800, background: `${color}18`, border: `1px solid ${color}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0, letterSpacing: .5 }}>
+              {getVerdictLabel(verdict)}
+            </span>
+          </button>
+        );
+      })}
+      {pendingCount > 0 && (
+        <div style={{ padding: '8px 12px', borderRadius: 4, background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.border}`, color: C.text3, fontSize: 12 }}>
+          {pendingCount} probe{pendingCount !== 1 ? 's' : ''} pending…
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchFindingDetail({ C, finding, onClose }) {
+  if (!finding) return null;
+  const verdict = normalizeVerdict(finding.judgeVerdict || finding.heuristicVerdict || finding.verdict);
+  const color = getVerdictColor(verdict, C);
+  const hc = getVerdictColor(normalizeVerdict(finding.heuristicVerdict), C);
+  const jc = finding.judgeVerdict ? getVerdictColor(normalizeVerdict(finding.judgeVerdict), C) : null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(10,12,22,.82)', display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }} onClick={onClose}>
+      <div style={{ width: 'min(560px, 100%)', background: C.bg, borderLeft: `3px solid ${color}`, display: 'flex', flexDirection: 'column', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.3, marginBottom: 3 }}>FINDING DETAIL</div>
+            <div style={{ fontSize: 15, color: C.text1, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{finding.payloadName}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: C.text3, fontSize: 18, cursor: 'pointer', padding: '4px 8px', lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Verdicts */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 160px', background: `${hc}0D`, border: `1px solid ${hc}44`, borderLeft: `3px solid ${hc}`, borderRadius: 4, padding: '10px 12px' }}>
+              <div style={{ fontSize: 10, color: C.text3, letterSpacing: 1.3, marginBottom: 4 }}>HEURISTIC</div>
+              <div style={{ fontSize: 12, color: hc, fontWeight: 800 }}>{getVerdictLabel(finding.heuristicVerdict)}</div>
+              {finding.evalReason && <div style={{ fontSize: 11, color: C.text2, marginTop: 5, lineHeight: 1.5, fontFamily: C.mono }}>{finding.evalReason}</div>}
+            </div>
+            {jc && (
+              <div style={{ flex: '1 1 160px', background: `${jc}0D`, border: `1px solid ${jc}44`, borderLeft: `3px solid ${jc}`, borderRadius: 4, padding: '10px 12px' }}>
+                <div style={{ fontSize: 10, color: C.teal, letterSpacing: 1.3, marginBottom: 4 }}>LLM JUDGE</div>
+                <div style={{ fontSize: 12, color: jc, fontWeight: 800 }}>{getVerdictLabel(finding.judgeVerdict)}</div>
+                {finding.judgeReason && <div style={{ fontSize: 11, color: C.text2, marginTop: 5, lineHeight: 1.5, fontFamily: C.mono, maxHeight: 100, overflowY: 'auto' }}>{finding.judgeReason}</div>}
+              </div>
+            )}
+          </div>
+          {/* Payload */}
+          <div>
+            <div style={{ fontSize: 10, color: C.amber, letterSpacing: 1.3, fontWeight: 800, marginBottom: 5 }}>ATTACK PAYLOAD</div>
+            <div style={{ background: C.panel, border: `1px solid ${C.amber}33`, borderRadius: 4, padding: '10px 12px', fontSize: 12, color: C.text2, fontFamily: C.mono, lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 140, overflowY: 'auto' }}>
+              {finding.payloadFull || finding.payload}
+            </div>
+          </div>
+          {/* Response */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: C.teal, letterSpacing: 1.3, fontWeight: 800, marginBottom: 5 }}>MODEL RESPONSE</div>
+            <div style={{ background: `${C.teal}0A`, border: `1px solid ${C.teal}33`, borderRadius: 4, padding: '10px 12px', fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto' }}>
+              {finding.responseFull || finding.response}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BatchJudgeRunner({ C, status, findings, batchFindingIds, onViewFinding, onStop }) {
+  const { index, total, name, judgeText, isLoadingModel, probeResponse } = status;
   const pct = Math.round(((index + 1) / total) * 100);
   const isLoading = !!isLoadingModel;
-  const isLast = index >= total - 1;
-
-  const hc = heuristicVerdict ? getVerdictColor(heuristicVerdict, C) : C.text3;
-  const jc = judgeVerdict ? getVerdictColor(judgeVerdict, C) : C.blue;
+  const batchFindings = (batchFindingIds && findings)
+    ? findings.filter(f => batchFindingIds.has(f.id))
+    : [];
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div style={{ padding: '24px 28px 20px', display: 'flex', flexDirection: 'column', gap: 16, flexShrink: 0 }}>
+      <div style={{ padding: '24px 28px 16px', display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
@@ -1613,123 +1713,56 @@ function BatchJudgeRunner({ C, status, onStop, onContinue }) {
           {isLoading ? (
             <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
           ) : (
-            <div style={{ width: `${pct}%`, height: '100%', background: paused ? jc : C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+            <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
           )}
         </div>
 
-        {/* Probe label */}
         {!isLoading && (
           <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
-            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>{paused ? 'VERDICT READY' : 'EVALUATING'}</div>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>EVALUATING</div>
             <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
           </div>
         )}
-
         {isLoading && (
-          <div style={{ padding: '14px 16px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
+          <div style={{ padding: '12px 14px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
             <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
               {name || 'Downloading judge model weights — this only happens once, then it stays cached.'}
             </div>
           </div>
         )}
-      </div>
 
-      {/* Paused: show both verdicts with glow */}
-      {paused && (
-        <div style={{ margin: '0 28px', display: 'flex', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
-          {heuristicVerdict && (
-            <div style={{ flex: '1 1 220px', background: `${hc}0D`, border: `1px solid ${hc}55`, borderLeft: `3px solid ${hc}`, borderRadius: 5, padding: '14px 16px', boxShadow: `0 0 18px ${hc}22` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: C.text3, fontWeight: 900, letterSpacing: 1.4 }}>HEURISTIC</div>
-                <span style={{ fontSize: 12, color: hc, fontWeight: 800, border: `1px solid ${hc}55`, padding: '2px 8px', borderRadius: 2, background: `${hc}18` }}>
-                  {getVerdictLabel(heuristicVerdict)}
-                </span>
-              </div>
-              {heuristicReason && (
-                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text1, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>
-                  {heuristicReason}
-                </div>
-              )}
-            </div>
-          )}
-          <div style={{ flex: '1 1 220px', background: `${jc}0D`, border: `1px solid ${jc}55`, borderLeft: `3px solid ${jc}`, borderRadius: 5, padding: '14px 16px', boxShadow: `0 0 20px ${jc}33` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: C.teal, fontWeight: 900, letterSpacing: 1.4 }}>LLM JUDGE</div>
-              <span style={{ fontSize: 12, color: jc, fontWeight: 800, border: `1px solid ${jc}55`, padding: '2px 8px', borderRadius: 2, background: `${jc}18` }}>
-                {getVerdictLabel(judgeVerdict)}
-              </span>
-            </div>
-            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text1, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>
+        {judgeText && !isLoading && (
+          <div style={{ padding: '12px 14px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4, maxHeight: 120, overflowY: 'auto' }}>
+            <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 6 }}>JUDGE OUTPUT</div>
+            <div style={{ fontSize: 12, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {judgeText}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Streaming judge output while evaluating */}
-      {!paused && judgeText && !isLoading && (
-        <div style={{ margin: '0 28px', flexShrink: 0, padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4 }}>
-          <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 8 }}>JUDGE OUTPUT</div>
-          <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {judgeText}
+        )}
+        {!judgeText && !isLoading && (
+          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.blue, animation: 'pulse 1.2s ease-in-out infinite' }} />
+            Sending to judge…
           </div>
-        </div>
-      )}
-      {!paused && !judgeText && !isLoading && (
-        <div style={{ margin: '0 28px', flexShrink: 0, padding: '12px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.blue, animation: 'pulse 1.2s ease-in-out infinite' }} />
-          Sending to judge…
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Model response */}
-      {probeResponse && (
-        <div style={{ flex: 1, margin: '16px 28px 24px', display: 'flex', flexDirection: 'column', gap: 0, minHeight: 0 }}>
-          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
-            MODEL RESPONSE
-          </div>
-          <div style={{ flex: 1, padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflowY: 'auto', minHeight: 80, maxHeight: paused ? 180 : undefined }}>
-            <div style={{ fontSize: 13, color: C.text2, fontFamily: C.mono, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {probeResponse}
-            </div>
-          </div>
-          {probePayload && (
-            <details style={{ marginTop: 8 }}>
-              <summary style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, color: C.text3 }}>▶</span> ATTACK PAYLOAD
-              </summary>
-              <div style={{ marginTop: 6, padding: '10px 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, fontSize: 12, color: C.text3, fontFamily: C.mono, lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {probePayload}
-              </div>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* Continue button when paused */}
-      {paused && (
-        <div style={{ padding: '12px 28px 24px', flexShrink: 0 }}>
-          <button onClick={onContinue} style={{
-            width: '100%', padding: '14px', borderRadius: 4, border: `1px solid ${jc}55`, cursor: 'pointer',
-            background: jc, color: C.ink, fontSize: 13, fontWeight: 900, letterSpacing: 2, fontFamily: C.mono,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: `0 0 20px ${jc}44`,
-          }}>
-            {isLast ? 'VIEW REPORT' : 'NEXT FINDING'} <ChevronRight size={15} />
-          </button>
-        </div>
-      )}
+      {/* Live findings list */}
+      <BatchFindingsList C={C} findings={batchFindings} total={total} onView={onViewFinding} judging currentIndex={index} />
     </div>
   );
 }
 
-function BatchRunner({ C, status, onStop }) {
-  const { index, total, probeName, response, payload } = status;
+function BatchRunner({ C, status, findings, batchFindingIds, onViewFinding, onStop }) {
+  const { index, total, probeName, response } = status;
   const pct = Math.round(((index) / total) * 100);
+  const batchFindings = (batchFindingIds && findings)
+    ? findings.filter(f => batchFindingIds.has(f.id))
+    : [];
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      {/* Header controls */}
-      <div style={{ padding: '24px 28px 20px', display: 'flex', flexDirection: 'column', gap: 16, flexShrink: 0 }}>
+      <div style={{ padding: '24px 28px 20px', display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Batch Running</div>
@@ -1748,41 +1781,27 @@ function BatchRunner({ C, status, onStop }) {
         </div>
 
         <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
-          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>CURRENT PROBE</div>
+          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>CURRENT PROBE</div>
           <div style={{ fontSize: 14, color: C.amber, fontWeight: 600 }}>{probeName}</div>
         </div>
 
         {response ? (
-          <div style={{ padding: '14px 16px', background: C.surface, border: `1px solid ${C.teal}44`, borderRadius: 4 }}>
-            <div style={{ fontSize: 11, color: C.teal, letterSpacing: 1.2, marginBottom: 8 }}>MODEL RESPONSE</div>
+          <div style={{ padding: '12px 14px', background: C.surface, border: `1px solid ${C.teal}44`, borderRadius: 4, maxHeight: 160, overflowY: 'auto' }}>
+            <div style={{ fontSize: 11, color: C.teal, letterSpacing: 1.2, marginBottom: 6 }}>MODEL RESPONSE</div>
             <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {response}
             </div>
           </div>
         ) : (
-          <div style={{ padding: '12px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.teal, animation: 'pulse 1.2s ease-in-out infinite' }} />
             Sending probe…
           </div>
         )}
       </div>
 
-      {/* Payload — readable while model responds */}
-      {payload && (
-        <div style={{ flex: 1, margin: '0 28px 24px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
-            ATTACK PAYLOAD
-          </div>
-          <div style={{ flex: 1, padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflowY: 'auto', minHeight: 80 }}>
-            <div style={{ fontSize: 13, color: C.text2, fontFamily: C.mono, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {payload}
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: C.text3, marginTop: 10 }}>
-            Findings are auto-saved as each probe completes. Review them in the report when the batch finishes.
-          </div>
-        </div>
-      )}
+      {/* Live findings list */}
+      <BatchFindingsList C={C} findings={batchFindings} total={total} onView={onViewFinding} judging={false} currentIndex={-1} />
     </div>
   );
 }
