@@ -200,6 +200,60 @@ function summarizeEvaluation(heuristic, judge) {
 // home → case → loading → select → probe/batch → triage ; report is overlay
 const STAGE = { HOME: 'home', CASE: 'case', LOADING: 'loading', SELECT: 'select', PROBE: 'probe', TRIAGE: 'triage', REPORT: 'report' };
 
+function CompatGate({ C }) {
+  const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+  const hasIsolation = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+  const issues = [
+    !hasWebGPU && 'WebGPU is not available in this browser',
+    !hasIsolation && 'Cross-origin isolation is not active (SharedArrayBuffer unavailable)',
+  ].filter(Boolean);
+
+  if (issues.length === 0) return null;
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }}>
+      <div style={{ maxWidth: 480, width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: 6, color: C.amber }}>ELICIT</div>
+
+        <div style={{ padding: '16px 18px', background: C.redBg, border: `1px solid ${C.red}55`, borderLeft: `3px solid ${C.red}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
+            {isMobile ? 'Mobile not supported' : 'Browser not supported'}
+          </div>
+          <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.6 }}>
+            {isMobile
+              ? 'ELICIT runs large language models directly in the browser using WebGPU. Mobile browsers do not yet have the GPU memory or WebGPU support required.'
+              : 'This browser is missing required capabilities to run in-browser models.'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {issues.map((issue, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: C.text2 }}>
+              <span style={{ color: C.red, fontWeight: 800, flexShrink: 0 }}>✕</span>
+              <span>{issue}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ padding: '14px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 12, color: C.text3, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Use instead</div>
+          <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.65 }}>
+            {isMobile
+              ? <>Open ELICIT on a <strong style={{ color: C.text1 }}>desktop or laptop</strong> running Chrome, Edge, or Arc. WebGPU and sufficient GPU memory are required to load models locally.</>
+              : <>Try <strong style={{ color: C.text1 }}>Chrome, Edge, or Arc</strong> on desktop. Make sure hardware acceleration is enabled in browser settings.</>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const savedCase = loadActiveCase();
   // Engine
@@ -890,6 +944,7 @@ export default function App() {
       color: C.text1, fontFamily: C.sans, lineHeight: 1.5, overflow: 'hidden',
     }}>
       <GlobalStyle C={C} />
+      <CompatGate C={C} />
       {headerBar}
       {stageRail}
       {stage !== STAGE.HOME && stage !== STAGE.CASE && stage !== STAGE.SELECT && (
