@@ -230,6 +230,11 @@ export default function App() {
   const [attackQuery, setAttackQuery] = useState('');
   const [navOpen, setNavOpen] = useState(false);
 
+  // Batch queue
+  const [selectedProbeIds, setSelectedProbeIds] = useState(new Set());
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchStatus, setBatchStatus] = useState(null); // { index, total, probeName, response }
+
   // Execution
   const [running, setRunning] = useState(false);
   const [response, setResponse] = useState('');
@@ -592,6 +597,96 @@ export default function App() {
     setLoggedFlash({ verdict: evalSummary.finalVerdict, disposition });
   };
 
+  // ── Shared finding builder (used by logFinding and batch) ──
+  const buildFindingObject = (p, cl, responseText, evalR, disposition = 'UNREVIEWED') => {
+    const tech = p.technique;
+    const technique = TECHNIQUES[tech];
+    const mapping = buildCaseMapping(tech, p);
+    const mitigation = getMitigationMapping(tech);
+    const evalSummary = summarizeEvaluation(evalR, null);
+    const timestamp = new Date().toISOString();
+    const runId = createRunId();
+    return {
+      id: runId, runId, timestamp,
+      findingId: `finding-${timestamp.slice(0, 10)}-${runId.slice(-6)}`,
+      caseFileId: caseId, analyst: analyst || 'unassigned', systemUnderTest, promptHash, selectedControlIds,
+      assessmentProfile: ASSURANCE_PROFILE.id, assessmentProfileLabel: ASSURANCE_PROFILE.label, assessmentProfileScope: ASSURANCE_PROFILE.scope_note,
+      caseSchemaVersion: p.schema_version || EVALUATION_CASE_SCHEMA_VERSION, frameworkMappingVersion: FRAMEWORK_MAPPING_VERSION,
+      techniqueId: tech, techniqueName: technique?.name || 'Unknown', owasp: technique?.owasp || '',
+      caseId: p.case_id || p.id, caseVersion: p.case_version || EVALUATION_CASE_SCHEMA_VERSION,
+      payloadName: p.name, caseDescription: p.description, category: p.category || technique?.name || '',
+      objective: p.objective || '', expectedSecureBehavior: p.expected_secure_behavior || '',
+      failureMode: p.failure_mode || '', successCriteria: p.success_criteria || '',
+      evidenceRequirements: p.evidence_requirements || [], reviewGuidance: p.review_guidance || '',
+      severityBaseline: p.severity_baseline || '', payload: p.payload, payloadFull: p.payload,
+      victimModel: loadedModelId, victimModelSettings: ATTACK_MODEL_SETTINGS, victimRuntime: 'WebLLM / WebGPU browser runtime',
+      victimPromptPreview: victimPrompt.slice(0, 120) + (victimPrompt.length > 120 ? '…' : ''),
+      response: responseText.slice(0, 500) + (responseText.length > 500 ? '…' : ''), responseFull: responseText,
+      verdict: evalSummary.finalVerdict, finalVerdictSource: evalSummary.source,
+      reviewStatus: evalSummary.reviewStatus, reviewerDecision: disposition,
+      reviewerNotes: '', reviewerReviewedAt: timestamp, controlGapStatement: '',
+      effectivenessAssessment: '', evaluationDisagreement: evalSummary.disagreement, evaluationNote: evalSummary.note,
+      heuristicVerdict: evalR.verdict, heuristicLabel: evalR.label,
+      judgeVerdict: null, judgeModel: null, judgeModelSettings: null,
+      evalReason: evalR.reason, judgeReason: null,
+      responseExcerpt: responseText.slice(0, 500) + (responseText.length > 500 ? '…' : ''),
+      evidenceExcerpt: responseText.slice(0, 500) + (responseText.length > 500 ? '…' : ''),
+      mappedControls: selectedControlIds.length ? selectedControlIds : mapping.mapped_controls,
+      nistAiRmf: mapping.nist_ai_rmf, euAiActRelevance: mapping.eu_ai_act_relevance,
+      euAiActScope: mapping.eu_ai_act_scope, iso42001Relevance: mapping.iso_42001_relevance,
+      readinessProfile: mapping.readiness_profile, readinessGaps: mapping.readiness_gaps,
+      officialMitigations: mitigation.official_mitigations, recommendedMitigations: mitigation.recommended_mitigations,
+      retestGuidance: mitigation.retest_guidance, notes: '',
+    };
+  };
+
+  // ── Run a queue of selected probes automatically ──
+  const runBatchQueue = async (queue) => {
+    if (!engineRef.current || modelStatus !== 'ready' || queue.length === 0) return;
+    setBatchRunning(true);
+    abortRef.current = false;
+    for (let i = 0; i < queue.length; i++) {
+      if (abortRef.current) break;
+      const { clusterId: cId, probeId } = queue[i];
+      const cl = CLUSTERS.find(c => c.id === cId);
+      const p = cl?.payloads.find(px => px.id === probeId);
+      if (!cl || !p) continue;
+      setBatchStatus({ index: i, total: queue.length, probeName: p.name, response: '' });
+      let full = '';
+      try {
+        const stream = await engineRef.current.chat.completions.create({
+          messages: [{ role: 'system', content: victimPrompt }, { role: 'user', content: p.payload }],
+          temperature: ATTACK_MODEL_SETTINGS.temperature,
+          max_tokens: ATTACK_MODEL_SETTINGS.max_tokens,
+          stream: true,
+        });
+        for await (const chunk of stream) {
+          if (abortRef.current) break;
+          full += chunk.choices[0]?.delta?.content || '';
+          setBatchStatus(s => ({ ...s, response: full }));
+        }
+      } catch (e) {
+        full = '';
+      }
+      if (full.trim()) {
+        const evalR = evaluateResponse(full, victimPrompt, p.technique);
+        setFindings(prev => [buildFindingObject(p, cl, full, evalR), ...prev]);
+      }
+    }
+    setBatchRunning(false);
+    setBatchStatus(null);
+    setSelectedProbeIds(new Set());
+    setStage(STAGE.REPORT);
+  };
+
+  const toggleProbeSelect = (probeId) => {
+    setSelectedProbeIds(prev => {
+      const next = new Set(prev);
+      next.has(probeId) ? next.delete(probeId) : next.add(probeId);
+      return next;
+    });
+  };
+
   const skipProbe = () => {
     if (isLastProbe) { setStage(STAGE.REPORT); return; }
     setProbeIndex(i => i + 1);
@@ -810,18 +905,25 @@ export default function App() {
               onSelectProbe={selectProbe}
               open={navOpen}
               setOpen={setNavOpen}
+              selectedProbeIds={selectedProbeIds}
+              onToggleSelect={toggleProbeSelect}
+              onRunQueue={(queue) => runBatchQueue(queue)}
             />
-            <ProbeStage
-              C={C}
-              cluster={cluster} probe={probe}
-              index={probeIndex} total={clusterPayloads.length}
-              victimPrompt={victimPrompt}
-              response={response} running={running}
-              evalResult={evalResult} judgeResult={judgeResult}
-              modelReady={modelStatus === 'ready'}
-              judgeMode={judgeMode}
-              onRun={runProbe} onStop={stopProbe} onSkip={skipProbe}
-            />
+            {batchRunning && batchStatus ? (
+              <BatchRunner C={C} status={batchStatus} onStop={() => { abortRef.current = true; }} />
+            ) : (
+              <ProbeStage
+                C={C}
+                cluster={cluster} probe={probe}
+                index={probeIndex} total={clusterPayloads.length}
+                victimPrompt={victimPrompt}
+                response={response} running={running}
+                evalResult={evalResult} judgeResult={judgeResult}
+                modelReady={modelStatus === 'ready'}
+                judgeMode={judgeMode}
+                onRun={runProbe} onStop={stopProbe} onSkip={skipProbe}
+              />
+            )}
           </div>
         )}
 
@@ -850,6 +952,9 @@ export default function App() {
               onSelectProbe={selectProbe}
               open={navOpen}
               setOpen={setNavOpen}
+              selectedProbeIds={selectedProbeIds}
+              onToggleSelect={toggleProbeSelect}
+              onRunQueue={(queue) => runBatchQueue(queue)}
             />
             <TriageStage
               C={C}
@@ -1203,6 +1308,53 @@ function LoadingStage({ C, cluster, modelName, modelSize, progress }) {
 }
 
 // ═══ STAGE 3 · Probe (one screen, one action) ════════════════════════════════
+function BatchRunner({ C, status, onStop }) {
+  const { index, total, probeName, response } = status;
+  const pct = Math.round(((index) / total) * 100);
+  return (
+    <div style={{ flex: 1, padding: '32px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Batch Running</div>
+          <div style={{ fontSize: 18, color: C.text1, fontWeight: 700 }}>
+            {index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total}</span>
+          </div>
+        </div>
+        <button onClick={onStop} style={{
+          padding: '8px 14px', background: C.redBg, border: `1px solid ${C.red}55`,
+          color: C.red, fontSize: 12, fontWeight: 700, letterSpacing: 1, borderRadius: 3, cursor: 'pointer',
+        }}>STOP</button>
+      </div>
+
+      <div style={{ height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: C.teal, borderRadius: 2, transition: 'width .3s ease' }} />
+      </div>
+
+      <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+        <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>CURRENT PROBE</div>
+        <div style={{ fontSize: 14, color: C.amber, fontWeight: 600 }}>{probeName}</div>
+      </div>
+
+      {response ? (
+        <div style={{ flex: 1, padding: '14px 16px', background: C.surface, border: `1px solid ${C.teal}44`, borderRadius: 4, overflowY: 'auto' }}>
+          <div style={{ fontSize: 11, color: C.teal, letterSpacing: 1.2, marginBottom: 8 }}>MODEL RESPONSE</div>
+          <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {response}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: '18px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13 }}>
+          Sending probe…
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, color: C.text3 }}>
+        Findings are auto-saved as each probe completes. Review them in the report when the batch finishes.
+      </div>
+    </div>
+  );
+}
+
 function ProbeStage({ C, cluster, probe, index, total, victimPrompt, response, running, evalResult, judgeResult, modelReady, judgeMode, onRun, onStop, onSkip }) {
   const color = C[cluster?.colorKey] || C.amber;
 
