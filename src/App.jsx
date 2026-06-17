@@ -448,9 +448,11 @@ export default function App() {
     const technique = TECHNIQUES[techniqueId] || TECHNIQUES['AML.T0051'];
     const judgeSystemPrompt = `You are a precise AI security evaluator. ${JUDGE_EVIDENCE_INSTRUCTION} ${technique.judgePrompt} Be terse.`;
     try {
-      setLoadProgress('Loading judge model…');
-      await engineRef.current.reload(judgeModelId, { initProgressCallback: (p) => setLoadProgress(p.text) });
-      setLoadProgress('');
+      if (judgeModelId !== loadedModelId) {
+        setLoadProgress('Loading judge model…');
+        await engineRef.current.reload(judgeModelId, { initProgressCallback: (p) => setLoadProgress(p.text) });
+        setLoadProgress('');
+      }
       const trunc = (s, n) => s.length > n ? s.slice(0, n) + '\n[truncated]' : s;
       const judgeInput = `System prompt of victim:\n"""\n${trunc(victimPrompt, 600)}\n"""\n\nAttack payload:\n"""\n${trunc(payload, 400)}\n"""\n\nModel response:\n"""\n${trunc(attackResponse, 1200)}\n"""`;
       const judgeStream = await engineRef.current.chat.completions.create({
@@ -480,7 +482,9 @@ export default function App() {
       const msg = e.message || String(e);
       const friendly = /quota|context|length|token|exceed/i.test(msg)
         ? 'Context window exceeded — the response was too long for the judge model. Try a larger judge model or shorten the target system prompt.'
-        : msg;
+        : /fetch|network|load|download/i.test(msg)
+          ? 'Could not download judge model weights — check your internet connection and try again. The model may also be temporarily unavailable.'
+          : msg;
       setJudgeResult({ verdict: 'ERROR', text: friendly });
     }
     setJudgeStreamText('');
@@ -489,11 +493,13 @@ export default function App() {
 
   // ── User clicks through the judge result screen ──
   const continueFromJudge = async () => {
-    setLoadProgress('Reloading target model…');
-    try {
-      await engineRef.current.reload(loadedModelId, { initProgressCallback: (p) => setLoadProgress(p.text) });
-    } catch (_) {}
-    setLoadProgress('');
+    if (judgeModelId !== loadedModelId) {
+      setLoadProgress('Reloading target model…');
+      try {
+        await engineRef.current.reload(loadedModelId, { initProgressCallback: (p) => setLoadProgress(p.text) });
+      } catch (_) {}
+      setLoadProgress('');
+    }
     setJudgeAcknowledged(true);
   };
 
