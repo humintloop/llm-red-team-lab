@@ -178,16 +178,10 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
                     <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.45 }}>{f.evaluationNote}</div>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 240px' }}>
-                    <FieldLabel C={C}>Heuristic{f.heuristicVerdict ? ` · ${getVerdictLabel(f.heuristicVerdict)}` : ''}</FieldLabel>
-                    <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5 }}>{f.evalReason}</div>
-                  </div>
-                  {f.judgeReason && (
-                    <div style={{ flex: '1 1 240px' }}>
-                      <FieldLabel C={C}>LLM judge{f.judgeVerdict ? ` · ${getVerdictLabel(f.judgeVerdict)}` : ''}</FieldLabel>
-                      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5 }}>{f.judgeReason}</div>
-                    </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <VerdictCard C={C} label="HEURISTIC" verdict={f.heuristicVerdict} reason={f.evalReason} />
+                  {(f.judgeVerdict || f.judgeReason) && (
+                    <VerdictCard C={C} label="LLM JUDGE" verdict={f.judgeVerdict} reason={f.judgeReason} isJudge />
                   )}
                 </div>
               </>
@@ -293,6 +287,33 @@ function Mini({ C, label, value }) {
     <div style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '8px 9px', borderRadius: 3 }}>
       <div style={{ fontSize: 10, color: C.text3, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 12.5, color: C.text1, lineHeight: 1.4, wordBreak: 'break-word' }}>{value}</div>
+    </div>
+  );
+}
+
+function VerdictCard({ C, label, verdict, reason, isJudge }) {
+  const color = verdict ? getVerdictColor(verdict, C) : C.text3;
+  const verdictLabel = verdict ? getVerdictLabel(verdict) : 'PENDING';
+  return (
+    <div style={{
+      flex: '1 1 240px',
+      background: verdict ? `${color}0D` : C.bg,
+      border: `1px solid ${verdict ? color + '44' : C.border}`,
+      borderLeft: `3px solid ${verdict ? color : C.border}`,
+      borderRadius: 4,
+      padding: '12px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: isJudge ? C.blue : C.text3, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase' }}>{label}</span>
+        <span style={{
+          fontSize: 12, color, fontWeight: 800, letterSpacing: 1,
+          background: verdict ? `${color}22` : C.surface,
+          border: `1px solid ${verdict ? color + '55' : C.border}`,
+          padding: '2px 8px', borderRadius: 2,
+        }}>{verdictLabel}</span>
+      </div>
+      {reason && <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55 }}>{reason}</div>}
+      {!reason && !verdict && <div style={{ fontSize: 12, color: C.text3, fontStyle: 'italic' }}>No verdict recorded</div>}
     </div>
   );
 }

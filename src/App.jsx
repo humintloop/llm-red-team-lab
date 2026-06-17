@@ -694,14 +694,14 @@ export default function App() {
     abortRef.current = false;
     try {
       if (judgeModelId !== loadedModelId) {
-        setBatchJudgeStatus({ index: 0, total: newFindings.length, name: 'Loading judge model…', judgeText: '' });
+        setBatchJudgeStatus({ index: 0, total: newFindings.length, name: 'Loading judge model…', judgeText: '', isLoadingModel: true });
         await engineRef.current.reload(judgeModelId, { initProgressCallback: (p) => setBatchJudgeStatus(s => ({ ...s, name: p.text })) });
       }
       const trunc = (s, n) => s.length > n ? s.slice(0, n) + '\n[truncated]' : s;
       for (let i = 0; i < newFindings.length; i++) {
         if (abortRef.current) break;
         const f = newFindings[i];
-        setBatchJudgeStatus({ index: i, total: newFindings.length, name: f.payloadName, judgeText: '' });
+        setBatchJudgeStatus({ index: i, total: newFindings.length, name: f.payloadName, judgeText: '', isLoadingModel: false });
         const technique = TECHNIQUES[f.techniqueId] || TECHNIQUES['AML.T0051'];
         const judgeSystemPrompt = `You are a precise AI security evaluator. ${JUDGE_EVIDENCE_INSTRUCTION} ${technique.judgePrompt} Be terse.`;
         const judgeInput = `System prompt of victim:\n"""\n${trunc(victimPrompt, 600)}\n"""\n\nAttack payload:\n"""\n${trunc(f.payload || '', 400)}\n"""\n\nModel response:\n"""\n${trunc(f.responseFull || '', 1200)}\n"""`;
@@ -1133,6 +1133,7 @@ function GlobalStyle({ C }) {
       @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
       @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes pulse { 0%,100% { opacity: .55; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.25); } }
+      @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
       .brand-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 6px; color: ${C.amber}; line-height: 1; }
       .es-card { animation: fadeUp .35s ease; }
       .es-pick { transition: border-color .15s, background .15s; }
@@ -1312,7 +1313,7 @@ function inputStyle(C) {
 }
 
 function SessionContextBar({ C, stage, model, caseId, controlIds, probeIndex, total, findingsCount, lastSavedAt, probes, outcomes, activeProbeId, onSelect }) {
-  const savedLabel = lastSavedAt ? new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'pending';
+  const savedLabel = lastSavedAt ? new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
   const colorFor = (payload) => {
     const outcome = outcomes[payload.id];
     if (payload.id === activeProbeId && !outcome) return C.text1;
@@ -1324,30 +1325,36 @@ function SessionContextBar({ C, stage, model, caseId, controlIds, probeIndex, to
   };
   return (
     <div style={{ borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.88)', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 20px', fontSize: 11, color: C.text3, overflowX: 'auto' }}>
-        <span style={{ color: C.text2 }}>HOME &gt; {caseId} &gt; {stage.toUpperCase()}</span>
-        <span>[MODEL] {model?.name || 'not loaded'}</span>
-        <span>[CASE] {caseId}</span>
-        <span>[CONTROL] {controlIds.join(', ') || 'not selected'}</span>
-        <span>[PROBE] {Math.min(probeIndex + 1, total || 1)}/{total || 0}</span>
-        <span>[FINDINGS] {findingsCount}</span>
-        <span style={{ marginLeft: 'auto', color: C.teal }}>Last saved {savedLabel}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 20px', fontSize: 12, overflowX: 'auto' }}>
+        <span style={{ color: C.amber, fontFamily: C.mono, fontWeight: 700, letterSpacing: 1, flexShrink: 0 }}>{caseId}</span>
+        <span style={{ color: C.border }}>·</span>
+        <span style={{ color: C.text2, flexShrink: 0 }}>{model?.name || 'no model'}</span>
+        {total > 0 && <>
+          <span style={{ color: C.border }}>·</span>
+          <span style={{ color: C.text3, flexShrink: 0 }}>probe {Math.min(probeIndex + 1, total)}/{total}</span>
+        </>}
+        {findingsCount > 0 && <>
+          <span style={{ color: C.border }}>·</span>
+          <span style={{ color: C.teal, flexShrink: 0 }}>{findingsCount} finding{findingsCount !== 1 ? 's' : ''}</span>
+        </>}
+        {savedLabel && <span style={{ marginLeft: 'auto', color: C.text3, fontSize: 11, flexShrink: 0 }}>saved {savedLabel}</span>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(probes.length, 1)}, minmax(18px, 1fr))`, gap: 3, padding: '0 20px 8px' }}>
-        {probes.map(payload => {
-          const color = colorFor(payload);
-          return (
-            <button key={payload.id} onClick={() => onSelect(payload.id)} title={`${payload.name} · ${outcomes[payload.id] || 'pending'}`} style={{
-              height: 8,
-              borderRadius: 2,
-              border: payload.id === activeProbeId ? `1px solid ${C.text1}` : `1px solid ${color}66`,
-              background: color,
-              opacity: outcomes[payload.id] || payload.id === activeProbeId ? 1 : .45,
-              cursor: 'pointer',
-            }} />
-          );
-        })}
-      </div>
+      {probes.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(probes.length, 1)}, minmax(18px, 1fr))`, gap: 3, padding: '0 20px 7px' }}>
+          {probes.map(payload => {
+            const color = colorFor(payload);
+            return (
+              <button key={payload.id} onClick={() => onSelect(payload.id)} title={`${payload.name} · ${outcomes[payload.id] || 'pending'}`} style={{
+                height: 6, borderRadius: 2,
+                border: payload.id === activeProbeId ? `1px solid ${C.text1}` : `1px solid ${color}55`,
+                background: color,
+                opacity: outcomes[payload.id] || payload.id === activeProbeId ? 1 : .3,
+                cursor: 'pointer',
+              }} />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1467,24 +1474,30 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
       </div>
 
       <div style={{ position: 'sticky', bottom: 0, paddingTop: 24, paddingBottom: 16, background: `linear-gradient(transparent, ${C.bg} 45%)` }}>
+        {selectedCount === 0 && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: C.text3, marginBottom: 10 }}>
+            ↑ Select probes above, or run all at once
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => onRunSelected(probes.filter(p => selectedIds.has(p.id)))}
-            disabled={selectedCount === 0}
-            style={{
-              flex: 1, minWidth: 200, padding: '14px 20px',
-              background: selectedCount > 0 ? color : C.surface,
-              color: selectedCount > 0 ? C.ink : C.text3,
-              border: 'none', borderRadius: 4, fontSize: 14, fontWeight: 800,
-              letterSpacing: 1, cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
-              transition: 'all .15s',
-            }}
-          >
-            RUN SELECTED ({selectedCount})
-          </button>
+          {selectedCount > 0 && (
+            <button
+              onClick={() => onRunSelected(probes.filter(p => selectedIds.has(p.id)))}
+              style={{
+                flex: 1, minWidth: 200, padding: '14px 20px',
+                background: color, color: C.ink,
+                border: 'none', borderRadius: 4, fontSize: 14, fontWeight: 800,
+                letterSpacing: 1, cursor: 'pointer', transition: 'all .15s',
+              }}
+            >
+              RUN SELECTED ({selectedCount})
+            </button>
+          )}
           <button onClick={onRunAll} style={{
-            padding: '14px 20px', background: 'transparent',
-            border: `1px solid ${C.borderHi}`, color: C.text2,
+            flex: selectedCount === 0 ? 1 : undefined,
+            padding: '14px 20px', background: selectedCount === 0 ? color : 'transparent',
+            color: selectedCount === 0 ? C.ink : C.text2,
+            border: `1px solid ${selectedCount === 0 ? color : C.borderHi}`,
             borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: .5, cursor: 'pointer',
           }}>
             RUN ALL ({probes.length})
@@ -1496,16 +1509,16 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
 }
 
 function BatchJudgeRunner({ C, status, onStop }) {
-  const { index, total, name, judgeText } = status;
+  const { index, total, name, judgeText, isLoadingModel } = status;
   const pct = Math.round((index / total) * 100);
-  const isLoading = !judgeText && index === 0;
+  const isLoading = !!isLoadingModel;
   return (
     <div style={{ flex: 1, padding: '32px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
+          <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
           <div style={{ fontSize: 18, color: C.text1, fontWeight: 700 }}>
-            {isLoading ? 'Loading judge…' : <>{index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total}</span></>}
+            {isLoading ? 'Loading judge model…' : <>{index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total} findings</span></>}
           </div>
         </div>
         <button onClick={onStop} style={{
@@ -1515,13 +1528,25 @@ function BatchJudgeRunner({ C, status, onStop }) {
       </div>
 
       <div style={{ height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .3s ease' }} />
+        {isLoading ? (
+          <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
+        ) : (
+          <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+        )}
       </div>
 
-      <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
-        <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>EVALUATING</div>
-        <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
-      </div>
+      {isLoading ? (
+        <div style={{ padding: '20px 16px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
+            {name || 'Downloading judge model weights — this only happens once, then it stays cached.'}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>EVALUATING</div>
+          <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
+        </div>
+      )}
 
       {judgeText ? (
         <div style={{ flex: 1, padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4, overflowY: 'auto' }}>
@@ -1530,14 +1555,14 @@ function BatchJudgeRunner({ C, status, onStop }) {
             {judgeText}
           </div>
         </div>
-      ) : (
+      ) : !isLoading ? (
         <div style={{ padding: '18px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13 }}>
-          {isLoading ? 'Loading judge model weights…' : 'Sending to judge…'}
+          Sending to judge…
         </div>
-      )}
+      ) : null}
 
       <div style={{ fontSize: 12, color: C.text3 }}>
-        Judge verdicts are being written to each finding. You'll review everything in the report when this completes.
+        Judge verdicts are written to each finding as they complete. You'll review everything in the report when this finishes.
       </div>
     </div>
   );
