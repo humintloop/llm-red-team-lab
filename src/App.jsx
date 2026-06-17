@@ -302,6 +302,7 @@ export default function App() {
   const [judgeStreamText, setJudgeStreamText] = useState('');
   const [judgeAcknowledged, setJudgeAcknowledged] = useState(false);
   const abortRef = useRef(false);
+  const batchJudgePauseResolverRef = useRef(null);
   const [loggedFlash, setLoggedFlash] = useState(null);
   const [controlGapStatement, setControlGapStatement] = useState('');
   const [effectivenessAssessment, setEffectivenessAssessment] = useState('');
@@ -567,6 +568,14 @@ export default function App() {
     setJudgeAcknowledged(true);
   };
 
+  // ── Advance past a paused batch-judge finding ──
+  const continueBatchJudge = () => {
+    if (batchJudgePauseResolverRef.current) {
+      batchJudgePauseResolverRef.current();
+      batchJudgePauseResolverRef.current = null;
+    }
+  };
+
   // ── Log a finding with a disposition, then advance ──
   const logFinding = (disposition) => {
     if (!response || !evalResult || !probe) return;
@@ -784,6 +793,15 @@ export default function App() {
           else if (/\bSUCCESS\b/.test(upper) && !/UNSUCCESS/.test(upper) && !/NOT\s+(A\s+)?SUCCESS/.test(upper)) verdict = 'SUCCESS';
           else verdict = 'FAILURE';
           updateFinding(f.id, { judgeVerdict: verdict, judgeReason: judgeText, judgeModel: judgeModelId, judgeModelSettings: JUDGE_MODEL_SETTINGS });
+          // Pause so the user can read the verdict before advancing
+          setBatchJudgeStatus({
+            index: i, total: newFindings.length, name: f.payloadName,
+            judgeText, judgeVerdict: verdict, heuristicVerdict: normalizeVerdict(f.heuristicVerdict),
+            isLoadingModel: false, paused: true,
+            probeResponse: f.responseFull || f.response || '', probePayload: f.payload || '',
+          });
+          await new Promise(resolve => { batchJudgePauseResolverRef.current = resolve; });
+          if (abortRef.current) break;
         }
       }
     } catch (_) {}
@@ -1045,7 +1063,7 @@ export default function App() {
               />
             )}
             {batchJudging && batchJudgeStatus ? (
-              <BatchJudgeRunner C={C} status={batchJudgeStatus} onStop={() => { abortRef.current = true; }} />
+              <BatchJudgeRunner C={C} status={batchJudgeStatus} onStop={() => { abortRef.current = true; continueBatchJudge(); }} onContinue={continueBatchJudge} />
             ) : batchRunning && batchStatus ? (
               <BatchRunner C={C} status={batchStatus} onStop={() => { abortRef.current = true; }} />
             ) : (
@@ -1565,13 +1583,18 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
   );
 }
 
-function BatchJudgeRunner({ C, status, onStop }) {
-  const { index, total, name, judgeText, isLoadingModel, probeResponse, probePayload } = status;
-  const pct = Math.round((index / total) * 100);
+function BatchJudgeRunner({ C, status, onStop, onContinue }) {
+  const { index, total, name, judgeText, judgeVerdict, heuristicVerdict, isLoadingModel, paused, probeResponse, probePayload } = status;
+  const pct = Math.round(((index + 1) / total) * 100);
   const isLoading = !!isLoadingModel;
+  const isLast = index >= total - 1;
+
+  const hc = heuristicVerdict ? getVerdictColor(heuristicVerdict, C) : C.text3;
+  const jc = judgeVerdict ? getVerdictColor(judgeVerdict, C) : C.blue;
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      {/* Fixed header controls */}
+      {/* Header */}
       <div style={{ padding: '24px 28px 20px', display: 'flex', flexDirection: 'column', gap: 16, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -1590,52 +1613,84 @@ function BatchJudgeRunner({ C, status, onStop }) {
           {isLoading ? (
             <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
           ) : (
-            <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+            <div style={{ width: `${pct}%`, height: '100%', background: paused ? jc : C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
           )}
         </div>
 
-        {isLoading ? (
+        {/* Probe label */}
+        {!isLoading && (
+          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>{paused ? 'VERDICT READY' : 'EVALUATING'}</div>
+            <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
+          </div>
+        )}
+
+        {isLoading && (
           <div style={{ padding: '14px 16px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
             <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
               {name || 'Downloading judge model weights — this only happens once, then it stays cached.'}
             </div>
           </div>
-        ) : (
-          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
-            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>EVALUATING</div>
-            <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
-          </div>
         )}
+      </div>
 
-        {judgeText ? (
-          <div style={{ padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4 }}>
-            <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 8 }}>JUDGE OUTPUT</div>
-            <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      {/* Paused: show both verdicts with glow */}
+      {paused && (
+        <div style={{ margin: '0 28px', display: 'flex', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
+          {heuristicVerdict && (
+            <div style={{ flex: '1 1 220px', background: `${hc}0D`, border: `1px solid ${hc}55`, borderLeft: `3px solid ${hc}`, borderRadius: 5, padding: '14px 16px', boxShadow: `0 0 18px ${hc}22` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: C.text3, fontWeight: 900, letterSpacing: 1.4 }}>HEURISTIC</div>
+                <span style={{ fontSize: 12, color: hc, fontWeight: 800, border: `1px solid ${hc}55`, padding: '2px 8px', borderRadius: 2, background: `${hc}18` }}>
+                  {getVerdictLabel(heuristicVerdict)}
+                </span>
+              </div>
+            </div>
+          )}
+          <div style={{ flex: '1 1 220px', background: `${jc}0D`, border: `1px solid ${jc}55`, borderLeft: `3px solid ${jc}`, borderRadius: 5, padding: '14px 16px', boxShadow: `0 0 20px ${jc}33` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: C.teal, fontWeight: 900, letterSpacing: 1.4 }}>LLM JUDGE</div>
+              <span style={{ fontSize: 12, color: jc, fontWeight: 800, border: `1px solid ${jc}55`, padding: '2px 8px', borderRadius: 2, background: `${jc}18` }}>
+                {getVerdictLabel(judgeVerdict)}
+              </span>
+            </div>
+            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.text1, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>
               {judgeText}
             </div>
           </div>
-        ) : !isLoading ? (
-          <div style={{ padding: '12px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.blue, animation: 'pulse 1.2s ease-in-out infinite' }} />
-            Sending to judge…
-          </div>
-        ) : null}
-      </div>
+        </div>
+      )}
 
-      {/* Model response — readable while judge works */}
+      {/* Streaming judge output while evaluating */}
+      {!paused && judgeText && !isLoading && (
+        <div style={{ margin: '0 28px', flexShrink: 0, padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4 }}>
+          <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 8 }}>JUDGE OUTPUT</div>
+          <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {judgeText}
+          </div>
+        </div>
+      )}
+      {!paused && !judgeText && !isLoading && (
+        <div style={{ margin: '0 28px', flexShrink: 0, padding: '12px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.blue, animation: 'pulse 1.2s ease-in-out infinite' }} />
+          Sending to judge…
+        </div>
+      )}
+
+      {/* Model response */}
       {probeResponse && (
-        <div style={{ flex: 1, margin: '0 28px 24px', display: 'flex', flexDirection: 'column', gap: 0, minHeight: 0 }}>
+        <div style={{ flex: 1, margin: '16px 28px 24px', display: 'flex', flexDirection: 'column', gap: 0, minHeight: 0 }}>
           <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
             MODEL RESPONSE
           </div>
-          <div style={{ flex: 1, padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflowY: 'auto', minHeight: 120 }}>
+          <div style={{ flex: 1, padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflowY: 'auto', minHeight: 80, maxHeight: paused ? 180 : undefined }}>
             <div style={{ fontSize: 13, color: C.text2, fontFamily: C.mono, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {probeResponse}
             </div>
           </div>
           {probePayload && (
             <details style={{ marginTop: 8 }}>
-              <summary style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 0 }}>
+              <summary style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, color: C.text3 }}>▶</span> ATTACK PAYLOAD
               </summary>
               <div style={{ marginTop: 6, padding: '10px 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, fontSize: 12, color: C.text3, fontFamily: C.mono, lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -1643,6 +1698,20 @@ function BatchJudgeRunner({ C, status, onStop }) {
               </div>
             </details>
           )}
+        </div>
+      )}
+
+      {/* Continue button when paused */}
+      {paused && (
+        <div style={{ padding: '12px 28px 24px', flexShrink: 0 }}>
+          <button onClick={onContinue} style={{
+            width: '100%', padding: '14px', borderRadius: 4, border: `1px solid ${jc}55`, cursor: 'pointer',
+            background: jc, color: C.ink, fontSize: 13, fontWeight: 900, letterSpacing: 2, fontFamily: C.mono,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: `0 0 20px ${jc}44`,
+          }}>
+            {isLast ? 'VIEW REPORT' : 'NEXT FINDING'} <ChevronRight size={15} />
+          </button>
         </div>
       )}
     </div>
@@ -1844,6 +1913,7 @@ function TriageStage({
           running={false}
           evalResult={evalResult}
           judgeResult={null}
+          compact
         />
 
         {/* Verdict cards — both evaluators side by side */}

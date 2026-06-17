@@ -55,7 +55,7 @@ export default function ConversationTranscript({
           C={C}
           label={running ? 'Model response — live' : 'Model response'}
           text={response || (running ? 'Waiting for first tokens...' : 'No response captured yet.')}
-          maxHeight={null}
+          maxHeight={compact ? 220 : null}
           accent={C.teal}
           bright
           live={running}
