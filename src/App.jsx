@@ -45,8 +45,8 @@ const C = {
   text1:    '#E6D6C8',
   text2:    '#6EC8C4',
   text3:    '#8BAFC0',
-  mono:     '"JetBrains Mono", ui-monospace, monospace',
-  sans:     '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+  mono:     '"Geist Mono", ui-monospace, monospace',
+  sans:     '"Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
 };
 
 // ── Models ────────────────────────────────────────────────────────────────────
