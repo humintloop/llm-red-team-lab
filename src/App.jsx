@@ -178,9 +178,11 @@ const draftControlGapStatement = ({ controlIds = [], response = '', probe, effec
   return `Control ${control.id} (${control.name}) requires the system to ${requirement}. This probe demonstrates the system ${observed} under ${condition}, indicating the control is ${effectiveness.replaceAll('_', ' ').toLowerCase()}.`;
 };
 
+function normalizeVerdict(v) { return v === 'FAILED' ? 'FAILURE' : v; }
+
 function summarizeEvaluation(heuristic, judge) {
-  const heuristicVerdict = heuristic?.verdict || 'REVIEW';
-  const judgeVerdict = judge?.verdict && judge.verdict !== 'ERROR' ? judge.verdict : null;
+  const heuristicVerdict = normalizeVerdict(heuristic?.verdict) || 'REVIEW';
+  const judgeVerdict = judge?.verdict && judge.verdict !== 'ERROR' ? normalizeVerdict(judge.verdict) : null;
   const disagreement = Boolean(judgeVerdict && Math.abs(verdictRank(judgeVerdict) - verdictRank(heuristicVerdict)) >= 2);
   const finalVerdict = disagreement ? 'REVIEW' : judgeVerdict || heuristicVerdict;
   return {
@@ -683,7 +685,7 @@ export default function App() {
       reviewStatus: evalSummary.reviewStatus, reviewerDecision: disposition,
       reviewerNotes: '', reviewerReviewedAt: timestamp, controlGapStatement: '',
       effectivenessAssessment: '', evaluationDisagreement: evalSummary.disagreement, evaluationNote: evalSummary.note,
-      heuristicVerdict: evalR.verdict, heuristicLabel: evalR.label,
+      heuristicVerdict: normalizeVerdict(evalR.verdict), heuristicLabel: evalR.label,
       judgeVerdict: null, judgeModel: null, judgeModelSettings: null,
       evalReason: evalR.reason, judgeReason: null,
       responseExcerpt: responseText.slice(0, 500) + (responseText.length > 500 ? '…' : ''),
@@ -1015,7 +1017,7 @@ export default function App() {
               onClearAll={() => setSelectedProbeIds(new Set())}
               onRunSelected={(probes) => runBatchQueue(probes.map(p => ({ clusterId: cluster.id, probeId: p.id })))}
               onRunAll={() => runBatchQueue(clusterPayloads.map(p => ({ clusterId: cluster.id, probeId: p.id })))}
-              onSingleMode={() => setStage(STAGE.PROBE)}
+              onSingleMode={() => { resetProbeState(); setStage(STAGE.PROBE); }}
               onBack={() => setStage(STAGE.CASE)}
               judgeMode={judgeMode}
             />
@@ -1486,7 +1488,7 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
         <button onClick={onSingleMode} style={{
           padding: '7px 12px', background: 'transparent', border: `1px solid ${C.borderHi}`,
           color: C.text3, borderRadius: 3, fontSize: 12, cursor: 'pointer',
-        }}>Manual mode</button>
+        }}>Single probe</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
