@@ -696,6 +696,7 @@ export default function App() {
       ))}
     </div>
   );
+  const resumableCase = Boolean(systemUnderTest.trim() || currentCaseFindings.length || probeIndex > 0);
 
   return (
     <div style={{
@@ -730,7 +731,7 @@ export default function App() {
             C={C}
             findings={findings}
             clusters={CLUSTERS}
-            activeCase={{ caseId, probeIndex, total: clusterPayloads.length, findingsCount: auditFindingCount }}
+            activeCase={resumableCase ? { caseId, probeIndex, total: clusterPayloads.length, findingsCount: auditFindingCount } : null}
             onEnter={newCase}
             onResume={() => setStage(modelStatus === 'ready' ? STAGE.PROBE : STAGE.CASE)}
             onReport={() => setStage(STAGE.REPORT)}

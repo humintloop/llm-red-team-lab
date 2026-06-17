@@ -35,22 +35,29 @@ const frameworkList = (finding = {}) => {
 };
 
 export function buildFindingMarkdown(finding) {
-  const controls = finding.mappedControls || finding.mapped_controls || [];
+  const controls = finding.selectedControlIds || finding.mappedControls || finding.mapped_controls || [];
   const mitigation = getMitigationMapping(finding.techniqueId);
   const officialMitigations = finding.officialMitigations || finding.official_mitigations || mitigation.official_mitigations || [];
   const recommendedMitigations = finding.recommendedMitigations || finding.recommended_mitigations || mitigation.recommended_mitigations;
   const retestGuidance = finding.retestGuidance || finding.retest_guidance || mitigation.retest_guidance;
   const readinessGaps = finding.readinessGaps || finding.readiness_gaps || [];
   const evidenceRequirements = finding.evidenceRequirements || finding.evidence_requirements || [];
+  const responseExcerpt = truncate(finding.evidenceExcerpt || finding.responseExcerpt || finding.response || '', 1000);
+  const fullResponse = truncate(finding.responseFull || finding.response || '', 2500);
+  const showFullResponse = fullResponse && fullResponse !== responseExcerpt;
   return `## Finding: ${finding.payloadName || finding.caseName || 'Untitled Evaluation Case'}
 
 **Run ID:** ${finding.runId || finding.id || 'Not recorded'}<br>
 **Finding ID:** ${finding.findingId || finding.id || 'Not recorded'}<br>
+**Case File:** ${finding.caseFileId || 'Not recorded'}<br>
+**System Under Test:** ${finding.systemUnderTest || 'Not recorded'}<br>
 **Verdict:** ${finding.verdict || 'Unknown'}<br>
 **Review Status:** ${finding.reviewStatus || 'Not recorded'}<br>
 **Reviewer Decision:** ${finding.reviewerDecision || 'UNREVIEWED'}<br>
 **Reviewer Reviewed At:** ${finding.reviewerReviewedAt || finding.reviewer_reviewed_at || 'Not recorded'}<br>
 **Verdict Source:** ${finding.finalVerdictSource || 'Not recorded'}<br>
+**Control Effectiveness:** ${finding.effectivenessAssessment || 'NOT ASSESSED'}<br>
+**System Prompt Hash:** ${finding.promptHash || 'Not recorded'}<br>
 **Test Case:** ${finding.caseId || finding.payloadId || 'custom'}<br>
 **Case Version:** ${finding.caseVersion || finding.case_version || 'Not recorded'}<br>
 **Technique:** ${finding.techniqueId || 'Unmapped'} — ${finding.techniqueName || ''}<br>
@@ -64,8 +71,9 @@ ${section('Objective', finding.objective)}
 ${section('Expected Secure Behavior', finding.expectedSecureBehavior || finding.expected_secure_behavior)}
 ${section('Failure Mode', finding.failureMode || finding.failure_mode)}
 ${section('Success / Failure Criteria', finding.successCriteria || finding.success_criteria)}
+${section('Control Gap Statement', finding.controlGapStatement || 'Control gap statement not completed — finding is not audit-ready.')}
 ### Response Excerpt
-> ${truncate(finding.evidenceExcerpt || finding.responseExcerpt || finding.response || '', 1000).replace(/\n/g, '\n> ')}
+> ${responseExcerpt.replace(/\n/g, '\n> ')}
 
 ### Evaluation Rationale
 - Heuristic Verdict: ${finding.heuristicVerdict || 'Not recorded'}${finding.heuristicLabel ? ` (${finding.heuristicLabel})` : ''}
@@ -102,10 +110,11 @@ ${list(retestGuidance)}
 ${truncate(finding.payload || '', 1800)}
 \`\`\`
 
-### Stored Response Excerpt
+${showFullResponse ? `### Stored Full Response
 \`\`\`text
-${truncate(finding.responseFull || finding.response || '', 2500)}
+${fullResponse}
 \`\`\`
+` : ''}
 `;
 }
 
@@ -157,9 +166,9 @@ The evaluation workflow is:
 
 ${controls.length ? controls.map(c => `- ${c.id} — ${c.name} (${c.domain})`).join('\n') : '- No mapped controls recorded'}
 
-## Findings
+## Active Findings
 
-${findings.length ? findings.map(buildFindingMarkdown).join('\n---\n\n') : 'No findings logged.'}
+${activeFindings.length ? activeFindings.map(buildFindingMarkdown).join('\n---\n\n') : 'No active findings logged.'}
 
 ## Limitations
 

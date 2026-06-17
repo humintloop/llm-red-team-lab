@@ -45,7 +45,7 @@ export default function DossierHome({ C, findings, clusters, activeCase, onEnter
             &gt; RESUME {activeCase.caseId} — Probe {Math.min((activeCase.probeIndex || 0) + 1, activeCase.total || 1)}/{activeCase.total || 0} · {activeCase.findingsCount || 0} finding{activeCase.findingsCount === 1 ? '' : 's'}
           </div>
           <button onClick={onResume} style={primaryButton(C)}>
-            CONTINUE INVESTIGATION <ChevronRight size={14} />
+            CONTINUE CASE <ChevronRight size={14} />
           </button>
         </section>
       )}
@@ -59,7 +59,7 @@ export default function DossierHome({ C, findings, clusters, activeCase, onEnter
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
             <button onClick={onEnter} style={primaryButton(C)}>
-              ENTER PROBING MODE <ChevronRight size={14} />
+              OPEN CASE FILE <ChevronRight size={14} />
             </button>
             <button onClick={onReport} disabled={!findings.length} style={{ ...ghostButton(C), opacity: findings.length ? 1 : .45, cursor: findings.length ? 'pointer' : 'not-allowed' }}>
               <FileText size={13} /> OPEN REPORT
