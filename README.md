@@ -193,9 +193,9 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - ISO/IEC 42001 section 9, conditional EU AI Act readiness, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF mappings
 - Project-defined mitigation and retest guidance
 
-## Real-World Findings
+## Origin
 
-ELICIT has been used to surface real vulnerabilities in production LLM deployments. One confirmed finding: **VEN-001**, a thinking-trace leakage vulnerability in Venice AI's GLM 4.7 Flash Heretic model, captured via an AML.T0056 / OWASP LLM07:2025 system prompt extraction probe. The model disclosed internal reasoning content that was not intended for user visibility. Finding evidence was retained locally and documented through ELICIT's standard triage workflow.
+ELICIT was built in response to a real finding. While probing a production LLM API, a system prompt extraction probe (AML.T0056 / OWASP LLM07:2025) caused the model to leak internal reasoning content through its thinking trace — content not intended for user visibility. There was no structured way to capture, document, or trace that finding to a control. ELICIT is what that workflow should have been: evidence retention, heuristic and judge evaluation, reviewer disposition, and a direct line from the finding to the control it informs.
 
 ---
 
