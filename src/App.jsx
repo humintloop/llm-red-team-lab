@@ -827,7 +827,7 @@ export default function App() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <img src={`${BRAND_BASE}brand/elicit-icon.png?v=${BRAND_VERSION}`} alt="" style={{ width: 38, height: 38, borderRadius: 9, boxShadow: `0 0 0 1px ${C.amber}55` }} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: C.amber, fontSize: 24, fontWeight: 900, letterSpacing: 3, lineHeight: 1 }}>ELICIT</div>
+          <div style={{ fontFamily: "'Rajdhani', sans-serif", color: C.amber, fontSize: 24, fontWeight: 700, letterSpacing: 6, lineHeight: 1 }}>ELICIT</div>
           <div style={{ color: C.warmDim, fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 3 }}>Adversarial Assurance Lab</div>
         </div>
       </div>
@@ -1133,6 +1133,7 @@ function GlobalStyle({ C }) {
       @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
       @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes pulse { 0%,100% { opacity: .55; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.25); } }
+      .brand-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 6px; color: ${C.amber}; line-height: 1; }
       .es-card { animation: fadeUp .35s ease; }
       .es-pick { transition: border-color .15s, background .15s; }
       .es-pick:hover { border-color: ${C.amber}88 !important; }

@@ -52,7 +52,7 @@ export default function DossierHome({ C, findings, clusters, activeCase, onEnter
         <div style={{ fontSize: 11, color: C.text3, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>
           Local-first adversarial assurance
         </div>
-        <h1 style={{ fontSize: 38, color: C.amber, fontWeight: 900, letterSpacing: 3, lineHeight: 1, margin: 0 }}>ELICIT</h1>
+        <h1 style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 52, color: C.amber, fontWeight: 700, letterSpacing: 10, lineHeight: 1, margin: 0 }}>ELICIT</h1>
         <p style={{ fontSize: 16, color: C.text2, lineHeight: 1.7, maxWidth: 540, marginTop: 14, marginBottom: 0 }}>
           Red-team LLMs in the browser. Preserve the evidence. Map the control gap.
         </p>
