@@ -10,13 +10,15 @@
 
 I built ELICIT because I needed it to exist.
 
-I first encountered deliberate ambiguity as a technique while serving with the Marine Corps overseas. Listening to a counter-intelligence officer work a conversation with a local national, I watched questions that were not quite questions cause the person to surface information he almost certainly had not meant to. The mechanism was simple: create enough interpretive space and the other party fills it for you.
+I first encountered deliberate ambiguity as a technique while serving with the Marine Corps overseas. Listening to a counter-intelligence officer work a conversation, I watched questions that were not quite questions cause the other person to surface information he almost certainly had not meant to. The mechanism was simple: create enough interpretive space and the other party fills it for you.
 
 Years later I applied the same logic to a public AI assistant. A prompt built on deliberate ambiguity caused the model to leak its internal reasoning through its thinking trace, content the system was not designed to expose. I submitted the finding. No bounty was paid. The response was that complete system prompt confidentiality is not something the industry considers a solved problem, a position OWASP LLM07:2025 and current security research both support.
 
 What that research also shows is that prompt extraction is not the end of the attack. It is the beginning. Knowing the system prompt tells an attacker what the model is allowed to do, what it is forbidden from doing, and how those restrictions are expressed in natural language. That is enough to map the instruction boundary, identify where the constraint logic is thin, and craft targeted bypasses against those specific gaps. Researchers now formally classify extraction as the reconnaissance phase of a documented multi-stage attack kill chain. The leak itself may look minor. What it enables is not.
 
 What struck me was not the leak itself. It was that there was no structured way to capture what happened, trace it to a control, or document what the exposure actually meant. ELICIT is what that workflow should have been.
+
+The tool reflects that background. Intelligence work is not about finding failures — it is about understanding what a failure reveals. ELICIT is built around that distinction: every probe is a collection act, every finding is an evidence record, and the disposition workflow exists because raw output is not an assessment. Someone has to look at what the model did, decide what it means, and trace it to the control that should have caught it. The tool does not do that for you. It gives you the structure to do it properly.
 
 ---
 
