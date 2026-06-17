@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Trash2, ChevronUp, ChevronRight } from 'lucide-react';
+import { Trash2, ChevronUp, ChevronRight, ChevronDown } from 'lucide-react';
 import { getVerdictColor, getVerdictLabel } from './VerdictBanner';
 import { getMitigationMapping } from '../data/mitigationMappings';
 import { CONTROL_SET } from '../data/frameworkMappings';
 import FrameworkMappingExplainer from './FrameworkMappingExplainer';
+
+const COLLAPSE_LINES = 5;
 
 const dispositionHelp = {
   UNREVIEWED: 'Not reviewed by a human yet',
@@ -167,23 +169,31 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
             ))}
           </div>
 
-          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {tab === 'evidence' && (
               <>
-                <Block C={C} label="PAYLOAD" mono>{f.payload}</Block>
-                <Block C={C} label="RESPONSE EXCERPT" mono bright>{f.response}</Block>
-                {f.evaluationDisagreement && (
-                  <div style={{ background: C.amberBg, border: `1px solid ${C.amber}40`, padding: '9px 11px', borderRadius: 3 }}>
-                    <div style={{ fontSize: 12, color: C.amber, letterSpacing: 1, marginBottom: 4, fontWeight: 800 }}>EVALUATORS DISAGREE</div>
-                    <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.45 }}>{f.evaluationNote}</div>
-                  </div>
-                )}
+                {/* Verdicts first */}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <VerdictCard C={C} label="HEURISTIC" verdict={f.heuristicVerdict} reason={f.evalReason} />
                   {(f.judgeVerdict || f.judgeReason) && (
                     <VerdictCard C={C} label="LLM JUDGE" verdict={f.judgeVerdict} reason={f.judgeReason} isJudge />
                   )}
                 </div>
+
+                {f.evaluationDisagreement && (
+                  <div style={{ background: C.amberBg, border: `1px solid ${C.amber}40`, padding: '9px 11px', borderRadius: 3 }}>
+                    <div style={{ fontSize: 12, color: C.amber, letterSpacing: 1, marginBottom: 4, fontWeight: 800 }}>EVALUATORS DISAGREE</div>
+                    <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.45 }}>{f.evaluationNote}</div>
+                  </div>
+                )}
+
+                {/* Response then payload */}
+                <ExpandableBlock C={C} label="MODEL RESPONSE" mono bright defaultExpanded>{f.response}</ExpandableBlock>
+                <ExpandableBlock C={C} label="ATTACK PAYLOAD" mono>{f.payload}</ExpandableBlock>
+
+                {f.responseFull && f.responseFull !== f.response && (
+                  <ExpandableBlock C={C} label="FULL RESPONSE" mono bright>{f.responseFull}</ExpandableBlock>
+                )}
               </>
             )}
 
@@ -198,7 +208,7 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
                       <Mini C={C} label="Control" value={(f.selectedControlIds || f.mappedControls || []).join(', ') || 'Not recorded'} />
                       <Mini C={C} label="Effectiveness" value={effectiveness.replaceAll('_', ' ')} />
                     </div>
-                    <Block C={C} label="CONTROL GAP STATEMENT" bright>{f.controlGapStatement || 'Control gap statement not completed — finding is not audit-ready.'}</Block>
+                    <ExpandableBlock C={C} label="CONTROL GAP STATEMENT" bright defaultExpanded>{f.controlGapStatement || 'Control gap statement not completed — finding is not audit-ready.'}</ExpandableBlock>
                   </div>
                 )}
                 <FrameworkMappingExplainer
@@ -262,6 +272,66 @@ function FieldLabel({ C, children }) {
   return <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{children}</div>;
 }
 
+function ExpandableBlock({ C, label, children, mono, bright, defaultExpanded = false }) {
+  const text = children || '';
+  const lineCount = text.split('\n').length;
+  const charCount = text.length;
+  const isLong = lineCount > COLLAPSE_LINES || charCount > 400;
+  const [open, setOpen] = useState(defaultExpanded || !isLong);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
+        {isLong && (
+          <button onClick={() => setOpen(p => !p)} style={{
+            display: 'flex', alignItems: 'center', gap: 3,
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            fontSize: 11, color: C.text3, fontWeight: 700, letterSpacing: .5, padding: '2px 4px',
+          }}>
+            {open ? <><ChevronUp size={11} /> COLLAPSE</> : <><ChevronDown size={11} /> EXPAND</>}
+          </button>
+        )}
+      </div>
+      <div style={{
+        fontSize: mono ? 13 : 14,
+        color: bright ? C.text1 : C.text2,
+        background: C.bg,
+        border: `1px solid ${C.border}`,
+        borderRadius: 3,
+        padding: '9px 11px',
+        lineHeight: 1.65,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        fontFamily: mono ? C.mono : C.sans,
+        overflow: 'hidden',
+        maxHeight: open ? 'none' : `${COLLAPSE_LINES * 1.65 * (mono ? 13 : 14) + 18}px`,
+        position: 'relative',
+      }}>
+        {text}
+        {!open && isLong && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 48,
+            background: `linear-gradient(transparent, ${C.bg})`,
+            pointerEvents: 'none',
+          }} />
+        )}
+      </div>
+      {!open && isLong && (
+        <button onClick={() => setOpen(true)} style={{
+          width: '100%', marginTop: 1, padding: '6px',
+          background: C.surface, border: `1px solid ${C.border}`,
+          borderTop: 'none', borderRadius: '0 0 3px 3px',
+          color: C.text3, fontSize: 11, fontWeight: 700, letterSpacing: .8,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
+          <ChevronDown size={11} /> SHOW FULL {label}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Block({ C, label, children, mono, bright }) {
   return (
     <div>
@@ -294,6 +364,9 @@ function Mini({ C, label, value }) {
 function VerdictCard({ C, label, verdict, reason, isJudge }) {
   const color = verdict ? getVerdictColor(verdict, C) : C.text3;
   const verdictLabel = verdict ? getVerdictLabel(verdict) : 'PENDING';
+  const [reasonOpen, setReasonOpen] = useState(true);
+  const isLong = reason && reason.length > 280;
+
   return (
     <div style={{
       flex: '1 1 240px',
@@ -303,7 +376,7 @@ function VerdictCard({ C, label, verdict, reason, isJudge }) {
       borderRadius: 4,
       padding: '12px 14px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: reason ? 10 : 0 }}>
         <span style={{ fontSize: 10, color: isJudge ? C.blue : C.text3, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase' }}>{label}</span>
         <span style={{
           fontSize: 12, color, fontWeight: 800, letterSpacing: 1,
@@ -311,8 +384,16 @@ function VerdictCard({ C, label, verdict, reason, isJudge }) {
           border: `1px solid ${verdict ? color + '55' : C.border}`,
           padding: '2px 8px', borderRadius: 2,
         }}>{verdictLabel}</span>
+        {reason && isLong && (
+          <button onClick={() => setReasonOpen(p => !p)} style={{
+            marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer',
+            color: C.text3, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3, padding: 0,
+          }}>
+            {reasonOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          </button>
+        )}
       </div>
-      {reason && <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55 }}>{reason}</div>}
+      {reason && reasonOpen && <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55 }}>{reason}</div>}
       {!reason && !verdict && <div style={{ fontSize: 12, color: C.text3, fontStyle: 'italic' }}>No verdict recorded</div>}
     </div>
   );
