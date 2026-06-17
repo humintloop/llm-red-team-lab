@@ -46,6 +46,7 @@ const C = {
   text2:    '#6EC8C4',
   text3:    '#8BAFC0',
   mono:     '"JetBrains Mono", ui-monospace, monospace',
+  sans:     '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
 };
 
 // ── Models ────────────────────────────────────────────────────────────────────
@@ -675,7 +676,7 @@ export default function App() {
       {stage !== STAGE.HOME && stage !== STAGE.CASE && (
         <div className="case-id-bar" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.text3 }}>
           <span style={{ color: C.border }}>│</span>
-          <span style={{ color: C.amber, letterSpacing: 1 }}>{caseId}</span>
+          <span style={{ color: C.amber, letterSpacing: 1, fontFamily: C.mono }}>{caseId}</span>
           {loadedModel && <span>· {loadedModel.name}</span>}
         </div>
       )}
@@ -726,7 +727,7 @@ export default function App() {
     <div style={{
       display: 'flex', flexDirection: 'column', minHeight: '100dvh', height: '100dvh',
       background: `linear-gradient(180deg, rgba(200,120,68,.04), transparent 210px), ${C.bg}`,
-      color: C.text1, fontFamily: C.mono, lineHeight: 1.5, overflow: 'hidden',
+      color: C.text1, fontFamily: C.sans, lineHeight: 1.5, overflow: 'hidden',
     }}>
       <GlobalStyle C={C} />
       {headerBar}
@@ -1329,7 +1330,7 @@ function TriageStage({
             {judging && <SignalBars C={C} color={C.teal} count={6} label="" style={{ display: 'inline-flex' }} />}
             {judgeResult && <span style={{ fontSize: 11, color: vc, fontWeight: 800, border: `1px solid ${vc}55`, padding: '2px 7px', borderRadius: 2 }}>{getVerdictLabel(judgeResult.verdict)}</span>}
           </div>
-          <div style={{ fontSize: 13, color: C.text1, lineHeight: 1.65, whiteSpace: 'pre-wrap', minHeight: 40 }}>
+          <div style={{ fontFamily: C.mono, fontSize: 13, color: C.text1, lineHeight: 1.65, whiteSpace: 'pre-wrap', minHeight: 40 }}>
             {judgeStreamText || judgeResult?.text || ''}
             {judging && <span style={{ animation: 'blink 1s infinite', marginLeft: 2 }}>▊</span>}
           </div>
