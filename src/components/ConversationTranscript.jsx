@@ -49,13 +49,14 @@ export default function ConversationTranscript({
         </button>
       </div>
       <div style={{ display: 'grid', gap: 10, padding: 12 }}>
-        <TranscriptBlock C={C} label="Target system prompt" text={victimPrompt} maxHeight={compact ? 88 : 150} dim />
-        <TranscriptBlock C={C} label="Attack payload" text={payload} maxHeight={compact ? 110 : 180} accent={C.amber} />
+        <TranscriptBlock C={C} label="Target system prompt" text={victimPrompt} maxHeight={compact ? 88 : 120} dim />
+        <TranscriptBlock C={C} label="Attack payload" text={payload} maxHeight={compact ? 110 : 150} accent={C.amber} />
         <TranscriptBlock
           C={C}
-          label={running ? 'Model response - live' : 'Model response'}
+          label={running ? 'Model response — live' : 'Model response'}
           text={response || (running ? 'Waiting for first tokens...' : 'No response captured yet.')}
-          maxHeight={compact ? 220 : 360}
+          maxHeight={null}
+          accent={C.teal}
           bright
           live={running}
         />
@@ -71,22 +72,23 @@ export default function ConversationTranscript({
 }
 
 function TranscriptBlock({ C, label, text, maxHeight, accent, bright, dim, live }) {
+  const isBright = bright && accent;
   return (
     <div>
-      <div style={{ fontSize: 10, color: accent || C.text3, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 5 }}>
+      <div style={{ fontSize: 11, color: accent || C.text3, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6, fontWeight: 800 }}>
         {label} {live && <span style={{ color: C.amber, animation: 'blink 1s infinite' }}>●</span>}
       </div>
       <div style={{
-        background: C.bg,
+        background: isBright ? `${accent}0A` : C.bg,
         border: `1px solid ${accent ? `${accent}55` : C.border}`,
         borderLeft: accent ? `3px solid ${accent}` : `1px solid ${C.border}`,
         borderRadius: 4,
-        color: bright ? C.text1 : dim ? C.text3 : C.text2,
-        fontSize: 12.5,
-        lineHeight: 1.65,
-        maxHeight,
-        overflowY: 'auto',
-        padding: '9px 10px',
+        color: bright ? '#FFFFFF' : dim ? C.text3 : C.text2,
+        fontSize: isBright ? 14 : 12.5,
+        lineHeight: 1.7,
+        maxHeight: maxHeight ?? undefined,
+        overflowY: maxHeight ? 'auto' : 'visible',
+        padding: isBright ? '12px 14px' : '9px 10px',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }}>
