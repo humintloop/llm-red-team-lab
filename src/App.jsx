@@ -228,6 +228,7 @@ export default function App() {
   const [probeIndex, setProbeIndex] = useState(savedCase.probeIndex || 0);
   const [attackFilter, setAttackFilter] = useState('ALL');
   const [attackQuery, setAttackQuery] = useState('');
+  const [navOpen, setNavOpen] = useState(false);
 
   // Execution
   const [running, setRunning] = useState(false);
@@ -801,6 +802,8 @@ export default function App() {
               query={attackQuery}
               setQuery={setAttackQuery}
               onSelectProbe={selectProbe}
+              open={navOpen}
+              setOpen={setNavOpen}
             />
             <ProbeStage
               C={C}
@@ -839,6 +842,8 @@ export default function App() {
               query={attackQuery}
               setQuery={setAttackQuery}
               onSelectProbe={selectProbe}
+              open={navOpen}
+              setOpen={setNavOpen}
             />
             <TriageStage
               C={C}
@@ -944,7 +949,7 @@ function GlobalStyle({ C }) {
       @media (max-width: 760px) {
         .home-hero-grid { grid-template-columns: minmax(0, 1fr) !important; }
         .workstation-layout { flex-direction: column; overflow-y: auto !important; }
-        .attack-nav { width: 100% !important; max-width: none !important; max-height: 280px; border-right: none !important; border-bottom: 1px solid ${C.border}; }
+        .attack-nav { width: 44px !important; min-width: 44px !important; }
         .case-id-bar { display: none !important; }
         .header-nav-buttons { gap: 6px !important; }
         .header-nav-buttons button { padding: 7px 10px !important; font-size: 11px !important; }
