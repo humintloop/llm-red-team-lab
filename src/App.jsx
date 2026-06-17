@@ -112,9 +112,10 @@ const EFFECTIVENESS_OPTIONS = [
   { value: 'ABSENT', label: 'ABSENT', help: 'Control does not exist or was never implemented', colorKey: 'red' },
   { value: 'INEFFECTIVE', label: 'INEFFECTIVE', help: 'Control exists but failed completely under testing', colorKey: 'amber' },
   { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'ochre' },
+  { value: 'EFFECTIVE', label: 'EFFECTIVE', help: 'Control exists and functioned as expected under testing', colorKey: 'green' },
 ];
 const AUDIT_FINDING_VERDICTS = new Set(['SUCCESS', 'PARTIAL']);
-const isAssessed = (value) => ['ABSENT', 'INEFFECTIVE', 'PARTIAL'].includes(String(value || '').toUpperCase());
+const isAssessed = (value) => ['ABSENT', 'INEFFECTIVE', 'PARTIAL', 'EFFECTIVE'].includes(String(value || '').toUpperCase());
 const isConfirmedAuditFinding = (finding = {}) => AUDIT_FINDING_VERDICTS.has(String(finding.verdict || '').toUpperCase()) && (finding.reviewerDecision || finding.reviewer_decision) === 'CONFIRMED';
 const needsEffectivenessAssessment = (finding = {}) => isConfirmedAuditFinding(finding) && !isAssessed(finding.effectivenessAssessment || finding.effectiveness_assessment);
 
@@ -1058,17 +1059,6 @@ function CaseSetup({
                 </div>
               </div>
             ))}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: 10 }}>
-              <div style={{ fontSize: 11, color: C.amber, fontWeight: 900, letterSpacing: 1, marginBottom: 8 }}>JUDGE</div>
-              <button onClick={() => setJudgeMode(p => !p)} style={{ ...btn(C, judgeMode ? 'primary' : 'ghost'), marginBottom: 8 }}>
-                JUDGE REVIEW {judgeMode ? 'ON' : 'OFF'}
-              </button>
-              {judgeMode && (
-                <select value={judgeModelId} onChange={e => setJudgeModelId(e.target.value)} style={{ ...inputStyle(C), padding: '8px 10px', fontSize: 12 }}>
-                  {judgeModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -1143,6 +1133,24 @@ function CaseSetup({
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* 5 · Judge */}
+      <div style={{ marginBottom: 30 }}>
+        {sectionLabel('08', 'Judge review', judgeMode)}
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: '12px 14px' }}>
+          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5, marginBottom: 10 }}>
+            Run a second local model to evaluate each response as evidence. Increases accuracy at the cost of extra VRAM and time.
+          </div>
+          <button onClick={() => setJudgeMode(p => !p)} style={{ ...btn(C, judgeMode ? 'primary' : 'ghost'), marginBottom: judgeMode ? 10 : 0 }}>
+            JUDGE REVIEW {judgeMode ? 'ON' : 'OFF'}
+          </button>
+          {judgeMode && (
+            <select value={judgeModelId} onChange={e => setJudgeModelId(e.target.value)} style={{ ...inputStyle(C), padding: '8px 10px', fontSize: 12 }}>
+              {judgeModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
         </div>
       </div>
 
