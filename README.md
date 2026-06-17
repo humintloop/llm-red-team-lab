@@ -1,5 +1,7 @@
 # ELICIT — Local-First Adversarial Assurance Lab
 
+**[→ Live app: humintloop.github.io/ELICIT/](https://humintloop.github.io/ELICIT/)**
+
 ![ELICIT social preview](public/brand/elicit-social-preview.png)
 
 Run adversarial LLM evaluation cases in the browser, preserve the evidence locally, and map each finding to the controls and framework readiness questions it informs. WebLLM/WebGPU handles model execution in-browser; after the initial model download, no external API calls are required.
@@ -54,6 +56,8 @@ Security issues in this repository should be reported through GitHub private sec
 | AML.T0056 | Extract LLM System Prompt | LLM07:2025 System Prompt Leakage | System prompt / hidden instruction disclosure |
 
 The payload library also includes project-defined delimiter-confusion variants. They are tracked as local variants under `AML.T0051.000`, not as separate MITRE ATLAS technique IDs.
+
+Planned additions include model extraction (AML.T0006), membership inference probing, and backdoor/trojan detection vectors. These will expand the coverage surface to match a broader MLDR-oriented assessment workflow.
 
 ---
 
@@ -189,22 +193,29 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - ISO/IEC 42001 section 9, conditional EU AI Act readiness, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF mappings
 - Project-defined mitigation and retest guidance
 
-## What's Next
+## Real-World Findings
 
-- Stronger judge prompt and JSON parsing
+ELICIT has been used to surface real vulnerabilities in production LLM deployments. One confirmed finding: **VEN-001**, a thinking-trace leakage vulnerability in Venice AI's GLM 4.7 Flash Heretic model, captured via an AML.T0056 / OWASP LLM07:2025 system prompt extraction probe. The model disclosed internal reasoning content that was not intended for user visibility. Finding evidence was retained locally and documented through ELICIT's standard triage workflow.
+
+---
+
+## Roadmap
+
+**v0.2 target**
+
+- API target mode — route probes to any OpenAI-compatible endpoint rather than requiring WebLLM; covers production API targets, not just local inference
+- Stronger judge prompt and structured JSON output parsing
 - System-computed severity, confidence, and false-positive-risk fields
-- Multi-run reproducibility mode
-- Regression testing
+- Multi-run reproducibility and regression testing
+- Technique expansion: model extraction (AML.T0006), membership inference, backdoor probing
 
-## Later
+**Later**
 
 - Expand `controls/` into a standalone completed LLM SaaS control set
-- Add control validation examples
-- Add framework crosswalk documentation
+- Add control validation examples and framework crosswalk documentation
 - Surface impacted controls more prominently in the UI
-- Richer control-aware reports
-- HTML/PDF report output
-- Control evidence packages
+- Richer control-aware reports with HTML/PDF output
+- Control evidence packages for audit handoff
 
 ---
 

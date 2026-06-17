@@ -43,7 +43,7 @@ const C = {
   coolDim:  '#7A9AB5',
   ink:      '#0A0C16',
   text1:    '#E6D6C8',
-  text2:    '#6EC8C4',
+  text2:    '#8FB8C8',
   text3:    '#8BAFC0',
   mono:     '"Geist Mono", ui-monospace, monospace',
   sans:     '"Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
