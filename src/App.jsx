@@ -41,6 +41,12 @@ const C = {
   amberBg:  'rgba(200,120,68,.13)',
   warmDim:  '#C4A07A',
   coolDim:  '#7A9AB5',
+  // Technique-category accents — deliberately distinct from the verdict
+  // colors above (red/teal/amber/blue) so a cluster's color never reads
+  // as a SUCCESS/FAILURE/PARTIAL/REVIEW outcome.
+  violet:   '#9684D6',
+  slate:    '#6B7A99',
+  sand:     '#B99C6B',
   ink:      '#0A0C16',
   text1:    '#E6D6C8',
   text2:    '#8FB8C8',
@@ -104,7 +110,9 @@ const BRAND_BASE = import.meta.env.BASE_URL;
 const BRAND_VERSION = '2026-06-15-copper';
 const ATTACK_MODEL_SETTINGS = { temperature: 0.7, max_tokens: 600 };
 const JUDGE_MODEL_SETTINGS = { temperature: 0.1, max_tokens: 150 };
-const DIFFICULTY_COLOR = { low: C.text3, medium: C.amberDim, high: C.amber };
+// Distinct from verdict colors (red/teal/amber/blue) so difficulty never
+// reads as an outcome — uses the warm-neutral ochre/orange tokens instead.
+const DIFFICULTY_COLOR = { low: C.text3, medium: C.ochre, high: C.orange };
 
 const createRunId = () => `run-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 const verdictRank = (v = '') => ({ FAILURE: 0, FAILED: 0, REVIEW: 1, PARTIAL: 2, SUCCESS: 3 }[String(v).toUpperCase()] ?? 1);
@@ -954,20 +962,23 @@ export default function App() {
   const triageAwaiting = triageQueue.length > 0;
   const triageDotColor = triageAwaiting ? C.amber : triageTotal > 0 ? C.teal : C.borderHi;
   const stageRail = stage !== STAGE.HOME && stage !== STAGE.CASE && (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.7)', flexShrink: 0, overflowX: 'auto' }}>
-      {[
-        ['Briefing', stage === STAGE.LOADING, () => setStage(STAGE.CASE), true],
-        ['Select Probes', stage === STAGE.SELECT, () => setStage(STAGE.SELECT), stage !== STAGE.LOADING],
-        [batchRunning ? 'Running…' : batchJudging ? 'Judging…' : `Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE, () => setStage(STAGE.PROBE), stage !== STAGE.LOADING && stage !== STAGE.SELECT],
-        ['Triage', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response || triageTotal)],
-        ['Report', stage === STAGE.REPORT, () => setStage(STAGE.REPORT), true],
-      ].map(([label, active, onClick, enabled], i) => (
-        <button key={label} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
-          {i > 0 && <ChevronRight size={11} color={C.border} style={{ margin: '0 9px' }} />}
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: label === 'Triage' ? triageDotColor : active ? C.amber : C.borderHi, boxShadow: label === 'Triage' && triageAwaiting ? `0 0 10px ${C.amber}` : active ? `0 0 8px ${C.amber}99` : 'none', animation: label === 'Triage' && triageAwaiting ? 'pulse 1.1s ease-in-out infinite' : 'none' }} />
-          <span style={{ fontSize: 12, letterSpacing: 1, fontWeight: active ? 800 : 500, color: active ? C.amber : C.text3, textTransform: 'uppercase' }}>{label}</span>
-        </button>
-      ))}
+    <div style={{ position: 'relative', borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.7)', flexShrink: 0, overflow: 'hidden' }}>
+      <div className="stage-rail" style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 20px', overflowX: 'auto' }}>
+        {[
+          ['Briefing', stage === STAGE.LOADING, () => setStage(STAGE.CASE), true],
+          ['Select Probes', stage === STAGE.SELECT, () => setStage(STAGE.SELECT), stage !== STAGE.LOADING],
+          [batchRunning ? 'Running…' : batchJudging ? 'Judging…' : `Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE, () => setStage(STAGE.PROBE), stage !== STAGE.LOADING && stage !== STAGE.SELECT],
+          ['Triage', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response || triageTotal)],
+          ['Report', stage === STAGE.REPORT, () => setStage(STAGE.REPORT), true],
+        ].map(([label, active, onClick, enabled], i) => (
+          <button key={label} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
+            {i > 0 && <ChevronRight size={11} color={C.border} style={{ margin: '0 9px' }} />}
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: label === 'Triage' ? triageDotColor : active ? C.amber : C.borderHi, boxShadow: label === 'Triage' && triageAwaiting ? `0 0 10px ${C.amber}` : active ? `0 0 8px ${C.amber}99` : 'none', animation: label === 'Triage' && triageAwaiting ? 'pulse 1.1s ease-in-out infinite' : 'none' }} />
+            <span style={{ fontSize: 12, letterSpacing: 1, fontWeight: active ? 800 : 500, color: active ? C.amber : C.text3, textTransform: 'uppercase' }}>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 28, background: 'linear-gradient(90deg, transparent, rgba(10,12,22,.92))', pointerEvents: 'none' }} />
     </div>
   );
   const resumableCase = Boolean(systemUnderTest.trim() || currentCaseFindings.length || probeIndex > 0);
@@ -1256,6 +1267,12 @@ function GlobalStyle({ C }) {
       @media (max-width: 480px) {
         .header-nav-buttons .hide-mobile { display: none !important; }
         .model-judge-row { grid-template-columns: 1fr !important; }
+        .stage-rail { padding: 8px 14px !important; }
+        .stage-rail button { padding: 3px 5px !important; gap: 6px !important; }
+        .stage-rail button span { font-size: 10.5px !important; }
+        .stage-rail svg { margin: 0 4px !important; }
+        .report-toolbar { flex-wrap: wrap !important; }
+        .report-toolbar button { flex: 1 1 auto !important; min-width: 0 !important; white-space: nowrap !important; font-size: 11px !important; padding: 7px 8px !important; }
       }
     `}</style>
   );
@@ -1507,7 +1524,6 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
   const color = C[cluster?.colorKey] || C.amber;
   const allSelected = probes.length > 0 && probes.every(p => selectedIds.has(p.id));
   const selectedCount = probes.filter(p => selectedIds.has(p.id)).length;
-  const DIFF_COLOR = { high: C.red, medium: C.amber, low: C.text3 };
 
   return (
     <div style={{ maxWidth: 740, margin: '0 auto', padding: '40px 24px 120px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1543,7 +1559,7 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {probes.map((p) => {
           const selected = selectedIds.has(p.id);
-          const diffColor = DIFF_COLOR[p.difficulty] || C.text3;
+          const diffColor = DIFFICULTY_COLOR[p.difficulty] || C.text3;
           return (
             <button key={p.id} onClick={() => onToggle(p.id)} style={{
               display: 'flex', alignItems: 'flex-start', gap: 16, textAlign: 'left',

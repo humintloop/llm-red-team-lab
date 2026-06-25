@@ -1,7 +1,10 @@
 import { PAYLOADS, TECHNIQUES } from '../payloads';
 import { buildCaseMapping } from './frameworkMappings';
 
-const palette = ['amber', 'teal', 'red', 'blue'];
+// Distinct from the verdict colors (red/teal/amber/blue used for SUCCESS/
+// FAILURE/PARTIAL/REVIEW) so a technique cluster's color never reads as
+// an outcome.
+const palette = ['violet', 'slate', 'sand', 'green'];
 
 function clusterBriefFor(technique, payloads) {
   const sample = payloads[0] || {};

@@ -38,12 +38,19 @@ export default function FindingsReport({
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ padding: '10px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13, color: C.text2, letterSpacing: 1.5, fontWeight: 700, flex: 1 }}>
           REPORT · {findings.length} FINDING{findings.length !== 1 ? 'S' : ''}
         </span>
         {findings.length > 0 && (
-          <>
+          <div className="report-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={exportReport} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+              background: C.amber, border: `1px solid ${C.amber}`, color: C.ink,
+              fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
+            }}>
+              <FileText size={11} /> EXPORT REPORT
+            </button>
             <button onClick={exportFindings} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
               background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text2,
@@ -51,28 +58,21 @@ export default function FindingsReport({
             }}>
               <Download size={11} /> EXPORT JSON
             </button>
-            <button onClick={exportReport} style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-              background: C.amberBg, border: `1px solid ${C.amber}40`, color: C.amber,
-              fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
-            }}>
-              <FileText size={11} /> EXPORT REPORT
-            </button>
             <button onClick={exportAuditBrief} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-              background: C.amberBg, border: `1px solid ${C.amber}70`, color: C.amber,
+              background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text2,
               fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
             }}>
-              <FileText size={11} /> AUDIT BRIEF HTML
+              <FileText size={11} /> AUDIT BRIEF
             </button>
             <button onClick={() => setConfirmClear(true)} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-              background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text3,
+              background: 'transparent', border: `1px solid ${C.border}`, color: C.text3,
               fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
             }}>
               <Trash2 size={11} /> CLEAR
             </button>
-          </>
+          </div>
         )}
       </div>
 

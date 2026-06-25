@@ -86,9 +86,13 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
           </div>
           <div style={{ fontSize: 16, color: C.text1, fontWeight: 600, marginBottom: 6 }}>{f.payloadName}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-            <StatusChip C={C} color={decisionColor} label={reviewerDecision.replaceAll('_', ' ')} />
-            <StatusChip C={C} color={assessedEffectiveness ? effectivenessColor : C.text3} label={assessedEffectiveness ? effectiveness.replaceAll('_', ' ') : 'NOT ASSESSED'} outline />
             <StatusChip C={C} color={auditReady ? C.teal : C.amber} label={auditReady ? 'AUDIT-READY' : 'NEEDS REVIEW'} dot />
+            {reviewerDecision !== 'UNREVIEWED' && (
+              <StatusChip C={C} color={decisionColor} label={reviewerDecision.replaceAll('_', ' ')} />
+            )}
+            {assessedEffectiveness && (
+              <StatusChip C={C} color={effectivenessColor} label={effectiveness.replaceAll('_', ' ')} outline />
+            )}
           </div>
         </div>
         <button style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: expanded ? C.surface : 'transparent', border: `1px solid ${C.borderHi}`, color: C.text2, fontSize: 12, fontWeight: 700, letterSpacing: .8, borderRadius: 3, cursor: 'pointer' }}>
