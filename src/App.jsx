@@ -824,8 +824,7 @@ export default function App() {
     } catch (_) {}
     if (judgeModelId !== loadedModelId) {
       try {
-        setBatchJudgeStatus(s => ({ ...s, name: 'Restoring target model…', isLoadingModel: true }));
-        await engineRef.current.reload(loadedModelId, { initProgressCallback: (p) => setBatchJudgeStatus(s => ({ ...s, name: p.text })) });
+        await engineRef.current.reload(loadedModelId);
       } catch (_) {}
     }
     setBatchJudging(false);
