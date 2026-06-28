@@ -25,6 +25,9 @@ export default function FindingsReport({
     setConfirmClear(false);
     clearFindings();
   };
+  const confirmedCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) === 'CONFIRMED').length;
+  const mappedControlCount = new Set(findings.flatMap(f => f.mappedControls || f.mapped_controls || f.selectedControlIds || [])).size;
+  const retestCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) === 'NEEDS_RETEST' || (f.retestGuidance || f.retest_guidance || []).length > 0).length;
 
   useEffect(() => {
     if (!activeCount) return undefined;
@@ -77,6 +80,18 @@ export default function FindingsReport({
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {findings.length > 0 && (
+          <section style={{ background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${confirmedCount ? C.red : C.teal}`, borderRadius: 3, padding: '12px 14px' }}>
+            <div style={{ fontSize: 12, color: C.text1, fontWeight: 800, marginBottom: 6 }}>Assessment summary</div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>
+              This report connects model-response evidence to reviewer decisions, impacted controls, mitigation actions, and retest guidance.
+              {confirmedCount > 0 ? ` ${confirmedCount} confirmed finding${confirmedCount === 1 ? '' : 's'} should be reviewed as control-gap evidence.` : ' Findings still need reviewer confirmation before they become audit-ready evidence.'}
+              {mappedControlCount > 0 && ` ${mappedControlCount} mapped control${mappedControlCount === 1 ? '' : 's'} appear in the current evidence set.`}
+              {retestCount > 0 && ` ${retestCount} finding${retestCount === 1 ? '' : 's'} include retest guidance so fixes can be verified.`}
+            </div>
+          </section>
+        )}
+
         {findings.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
             {['SUCCESS', 'PARTIAL', 'FAILURE', 'REVIEW'].map(verdict => {
